@@ -149,8 +149,17 @@ async function writeDevices(
   const identification = identifyDevices(discovery);
 
   historyStore.recordDevices(identification.devices);
-
-  writeJson(response, request, 200, identification);
+  historyStore.markAbsent(
+    discovery.pings.map((item) => item.ip),
+    identification.devices
+      .filter((item) => item.identity.status === "online")
+      .map((item) => item.identity.id)
+  );
+  historyStore.prune();
+  writeJson(response, request, 200, {
+    ...identification,
+    devices: historyStore.getDevices()
+  });
 }
 
 function getCorsHeaders(origin: string | undefined): Record<string, string> {

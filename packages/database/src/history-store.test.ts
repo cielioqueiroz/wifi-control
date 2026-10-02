@@ -36,6 +36,30 @@ function makeDevice(
 }
 
 describe("HistoryStore", () => {
+  it("keeps manual preferences and presence timestamps across scans", () => {
+    const store = new HistoryStore(":memory:");
+    store.recordDevices([makeDevice("online", "2026-10-02T10:00:00.000Z")]);
+    expect(
+      store.updatePreferences("mac-aabbccddeeff", {
+        alias: "TV da sala",
+        trustStatus: "trusted"
+      })
+    ).toBe(true);
+    store.recordDevices([makeDevice("unknown", "2026-10-02T10:10:00.000Z")]);
+    expect(store.getDevices()[0]?.identity).toMatchObject({
+      displayName: "TV da sala",
+      trustStatus: "trusted",
+      lastSeenAt: new Date("2026-10-02T10:00:00.000Z")
+    });
+    store.markAbsent(
+      ["192.168.3.42"],
+      [],
+      Date.parse("2026-10-02T10:10:00.000Z")
+    );
+    expect(store.getDevices()[0]?.identity.status).toBe("offline");
+    expect(store.updatePreferences("missing", { alias: "Teste" })).toBe(false);
+    store.close();
+  });
   it("persists first and last seen dates", () => {
     const store = new HistoryStore(":memory:");
 

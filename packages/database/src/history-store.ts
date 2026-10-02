@@ -6,6 +6,13 @@ import { dirname, join } from "node:path";
 export type HistoryDeviceStatus = "online" | "offline" | "unknown";
 
 export interface HistoryDeviceInput {
+  claims?: {
+    displayName: {
+      value: string;
+      source: "manual" | "detected" | "inferred";
+      confidence: number;
+    };
+  };
   identity: {
     deviceType: string | null;
     displayName: string;
@@ -103,7 +110,44 @@ export class HistoryStore {
 
     try {
       for (const device of devices) {
-        this.recordDevice(device);
+        const stored = this.database
+          .prepare(
+            "SELECT payload_json FROM device_snapshots WHERE device_id = ?"
+          )
+          .get(device.identity.id) as { payload_json: string } | undefined;
+        const previous = stored ? decodeDevice(stored.payload_json) : null;
+        const preference = this.database
+          .prepare(
+            "SELECT alias, trust_status FROM device_preferences WHERE device_id = ?"
+          )
+          .get(device.identity.id) as
+          { alias: string | null; trust_status: string | null } | undefined;
+        const merged: HistoryDeviceInput = {
+          ...device,
+          identity: {
+            ...device.identity,
+            firstSeenAt:
+              previous?.identity.firstSeenAt ?? device.identity.firstSeenAt,
+            lastSeenAt:
+              device.identity.status === "online"
+                ? device.identity.lastSeenAt
+                : (previous?.identity.lastSeenAt ?? device.identity.lastSeenAt),
+            displayName: preference?.alias ?? device.identity.displayName,
+            trustStatus: (preference?.trust_status ??
+              device.identity
+                .trustStatus) as HistoryDeviceInput["identity"]["trustStatus"]
+          }
+        };
+        if (preference?.alias)
+          merged.claims = {
+            displayName: {
+              value: preference.alias,
+              source: "manual",
+              confidence: 1
+            }
+          };
+        this.recordDevice(merged);
+        this.saveDevice(merged);
       }
 
       this.database.exec("COMMIT;");
@@ -157,6 +201,106 @@ export class HistoryStore {
 
   close(): void {
     this.database.close();
+  }
+
+  getDevices(): HistoryDeviceInput[] {
+    return (
+      this.database
+        .prepare("SELECT payload_json FROM device_snapshots ORDER BY device_id")
+        .all() as { payload_json: string }[]
+    ).map((row) => decodeDevice(row.payload_json));
+  }
+
+  updatePreferences(
+    id: string,
+    input: { alias?: string; trustStatus?: "unknown" | "trusted" }
+  ): boolean {
+    const device = this.getDevices().find((item) => item.identity.id === id);
+    if (!device) return false;
+    this.database.exec("BEGIN IMMEDIATE TRANSACTION");
+    try {
+      this.database
+        .prepare(
+          `INSERT INTO device_preferences (device_id, alias, trust_status) VALUES (?, ?, ?)
+        ON CONFLICT(device_id) DO UPDATE SET alias = COALESCE(excluded.alias, alias), trust_status = COALESCE(excluded.trust_status, trust_status)`
+        )
+        .run(id, input.alias ?? null, input.trustStatus ?? null);
+      if (input.alias !== undefined) {
+        device.identity.displayName = input.alias;
+        device.claims = {
+          displayName: { source: "manual", confidence: 1, value: input.alias }
+        };
+      }
+      if (input.trustStatus !== undefined)
+        device.identity.trustStatus = input.trustStatus;
+      this.database
+        .prepare(
+          "UPDATE devices SET display_name = ?, trust_status = ? WHERE id = ?"
+        )
+        .run(device.identity.displayName, device.identity.trustStatus, id);
+      this.saveDevice(device);
+      this.recordEvent(id, "device_updated", Date.now(), input);
+      this.database.exec("COMMIT");
+      return true;
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  markAbsent(
+    scannedAddresses: readonly string[],
+    onlineIds: readonly string[],
+    now = Date.now()
+  ): void {
+    const scanned = new Set(scannedAddresses);
+    for (const device of this.getDevices()) {
+      if (
+        !device.identity.ip ||
+        !scanned.has(device.identity.ip) ||
+        onlineIds.includes(device.identity.id) ||
+        now - device.identity.lastSeenAt.getTime() < 120_000 ||
+        device.identity.status === "offline"
+      )
+        continue;
+      device.identity.status = "offline";
+      this.database
+        .prepare("UPDATE devices SET status = 'offline' WHERE id = ?")
+        .run(device.identity.id);
+      this.saveDevice(device);
+      this.recordEvent(device.identity.id, "status_changed", now, {
+        from: "online",
+        to: "offline"
+      });
+    }
+  }
+
+  prune(retentionDays = 90): void {
+    const cutoff = Date.now() - Math.max(7, retentionDays) * 86_400_000;
+    for (const table of ["observations", "discovery_evidence"]) {
+      this.database
+        .prepare(`DELETE FROM ${table} WHERE observed_at < ?`)
+        .run(cutoff);
+    }
+    this.database
+      .prepare("DELETE FROM activity_events WHERE occurred_at < ?")
+      .run(cutoff);
+  }
+
+  getRouterActions(): unknown[] {
+    return this.database
+      .prepare(
+        "SELECT id, device_id AS deviceId, action, status, requested_at AS requestedAt, result_json AS resultJson FROM router_actions ORDER BY requested_at DESC LIMIT 100"
+      )
+      .all();
+  }
+
+  private saveDevice(device: HistoryDeviceInput): void {
+    this.database
+      .prepare(
+        "INSERT INTO device_snapshots (device_id, payload_json) VALUES (?, ?) ON CONFLICT(device_id) DO UPDATE SET payload_json = excluded.payload_json"
+      )
+      .run(device.identity.id, JSON.stringify(device));
   }
 
   recordRouterAction(input: RouterAuditInput): void {
@@ -364,4 +508,27 @@ const HISTORY_SCHEMA = `
     requested_at INTEGER NOT NULL,
     result_json TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS device_snapshots (
+    device_id TEXT PRIMARY KEY REFERENCES devices(id),
+    payload_json TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS device_preferences (
+    device_id TEXT PRIMARY KEY REFERENCES devices(id),
+    alias TEXT,
+    trust_status TEXT
+  );
+  CREATE INDEX IF NOT EXISTS activity_events_time ON activity_events(occurred_at);
+  CREATE INDEX IF NOT EXISTS observations_time ON observations(observed_at);
+  CREATE INDEX IF NOT EXISTS evidence_time ON discovery_evidence(observed_at);
 `;
+
+function decodeDevice(payload: string): HistoryDeviceInput {
+  const device = JSON.parse(payload) as HistoryDeviceInput;
+  device.identity.firstSeenAt = new Date(device.identity.firstSeenAt);
+  device.identity.lastSeenAt = new Date(device.identity.lastSeenAt);
+  device.evidence = device.evidence.map((item) => ({
+    ...item,
+    observedAt: new Date(item.observedAt)
+  }));
+  return device;
+}
