@@ -44,6 +44,9 @@ importers:
       '@wifi-control/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@wifi-control/identification':
+        specifier: workspace:*
+        version: link:../../packages/identification
       '@wifi-control/network':
         specifier: workspace:*
         version: link:../../packages/network
@@ -147,6 +150,22 @@ importers:
       drizzle-kit:
         specifier: ^0.31.4
         version: 0.31.11
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.19.0)(jiti@1.21.7)(supports-color@7.2.0)(tsx@4.23.15)
+
+  packages/identification:
+    dependencies:
+      '@wifi-control/network':
+        specifier: workspace:*
+        version: link:../network
+      '@wifi-control/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3

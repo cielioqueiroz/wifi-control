@@ -5,6 +5,11 @@ Network discovery:
 - `docs/NETWORK_DISCOVERY.md`
 - `packages/network/`
 
+Device identification:
+
+- `specs/003-device-identification/`
+- `packages/identification/`
+
 UI:
 
 - `docs/DESIGN_SYSTEM.md`

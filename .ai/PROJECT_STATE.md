@@ -1,7 +1,7 @@
 # Project State
 
 Current phase:
-Phase 1 - Network Discovery complete.
+Phase 2 - Device Identification complete.
 
 In progress:
 
@@ -19,10 +19,13 @@ Completed:
 - Windows network adapter, subnet guards, neighbor parsing, bounded ICMP scan,
   and local `/discover` endpoint implemented.
 - Phase 1 tests and monorepo validation passed.
+- Evidence correlation package, private-MAC protection, manual aliases, and
+  local `/devices` endpoint implemented.
+- Phase 2 tests and monorepo validation passed.
 
 Next:
 
-- Start Phase 2 - Device Identification.
+- Start Phase 3 - Dashboard.
 
 Known issues:
 

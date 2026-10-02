@@ -7,3 +7,6 @@
 - Keep Phase 1 discovery Windows-first and read-only: PowerShell neighbor data
   is collected before a bounded ICMP sweep, with private-subnet and concurrency
   guardrails enforced in the platform-independent scanner.
+- Keep Phase 2 correlation deterministic and evidence-preserving: MAC is a
+  correlation key when available, IP is the fallback, and manual aliases only
+  replace the display claim.

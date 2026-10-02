@@ -36,6 +36,7 @@ unsupported and mock behavior.
 - `packages/shared`: domain types and small shared helpers.
 - `packages/config`: validated runtime config.
 - `packages/network`: network adapter contracts.
+- `packages/identification`: evidence correlation and identity claims.
 - `packages/database`: Drizzle SQLite schema.
 - `packages/router-adapters`: router contracts and safe mocks.
 - `packages/ui`: shared UI primitives.

@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import type { ServerResponse } from "node:http";
 
 import { readLocalApiConfig } from "@wifi-control/config";
+import { identifyDevices } from "@wifi-control/identification";
 import {
   createPlatformNetworkAdapter,
   discoverNetwork
@@ -32,6 +33,11 @@ const server = createServer((request, response) => {
 
   if (request.url === "/discover") {
     void writeDiscovery(response);
+    return;
+  }
+
+  if (request.url === "/devices") {
+    void writeDevices(response);
     return;
   }
 
@@ -70,4 +76,12 @@ async function writeDiscovery(response: ServerResponse): Promise<void> {
 
   response.writeHead(200, { "content-type": "application/json" });
   response.end(JSON.stringify(discovery));
+}
+
+async function writeDevices(response: ServerResponse): Promise<void> {
+  const discovery = await discoverNetwork(networkAdapter);
+  const identification = identifyDevices(discovery);
+
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify(identification));
 }
