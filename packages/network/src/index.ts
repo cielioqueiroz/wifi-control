@@ -1,5 +1,7 @@
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
+import { enrichNames, type NameEvidence } from "./enrichment.js";
+export { enrichNames, type NameEvidence } from "./enrichment.js";
 
 const execFile = promisify(execFileCallback);
 
@@ -61,12 +63,15 @@ export class UnsupportedNetworkAdapter implements NetworkPlatformAdapter {
 }
 
 export interface DiscoveryOptions {
+  signal?: AbortSignal;
+  enrich?: boolean;
   maxConcurrency?: number;
   pingTimeoutMs?: number;
   maxAddressesPerSubnet?: number;
 }
 
 export interface NetworkDiscoveryResult {
+  names?: NameEvidence[];
   interfaces: NetworkInterface[];
   neighbors: NeighborEntry[];
   pings: PingResult[];
@@ -291,6 +296,7 @@ export async function discoverNetwork(
     targets,
     maxConcurrency,
     async (ip) => {
+      options.signal?.throwIfAborted();
       return withTimeout(adapter.ping(ip), pingTimeoutMs, {
         ip,
         latencyMs: null,
@@ -299,7 +305,20 @@ export async function discoverNetwork(
     }
   );
 
-  return { interfaces, neighbors, pings };
+  options.signal?.throwIfAborted();
+  const refreshed = await adapter.getNeighbors();
+  const latestNeighbors = refreshed.length ? refreshed : neighbors;
+  const names = options.enrich
+    ? await enrichNames(
+        [
+          ...latestNeighbors.map((item) => item.ip),
+          ...pings.filter((item) => item.reachable).map((item) => item.ip)
+        ],
+        interfaces,
+        options.signal
+      )
+    : [];
+  return { interfaces, neighbors: latestNeighbors, pings, names };
 }
 
 export class WindowsNetworkAdapter implements NetworkPlatformAdapter {
@@ -341,8 +360,8 @@ export class WindowsNetworkAdapter implements NetworkPlatformAdapter {
         }
       );
       const latencyMs = parsePingLatency(stdout) ?? Date.now() - startedAt;
-
-      return { ip, latencyMs, reachable: true };
+      const reachable = /ttl[=\s]/i.test(stdout);
+      return { ip, latencyMs: reachable ? latencyMs : null, reachable };
     } catch {
       return { ip, latencyMs: null, reachable: false };
     }

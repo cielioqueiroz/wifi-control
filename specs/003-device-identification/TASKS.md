@@ -6,3 +6,6 @@
 - [x] Apply manual aliases without removing evidence.
 - [x] Expose identified devices through the local agent.
 - [x] Add unit tests for correlation and claim precedence.
+- [x] Collect bounded reverse DNS, mDNS and SSDP evidence locally.
+- [x] Preserve positive presence evidence when a device ignores ICMP.
+- [x] Refresh neighbor entries after the sweep and support cancellation.

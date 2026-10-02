@@ -18,7 +18,8 @@ as fact.
 
 ## Phase 2 implementation boundary
 
-The current engine correlates Windows neighbor entries and ICMP results in
-memory and returns normalized evidence for the local agent. Persistence into
-the existing SQLite tables and additional hostname protocols remain follow-up
-work for the dashboard and history phases.
+The engine correlates neighbors, ICMP, reverse DNS, mDNS and SSDP. PTR queries
+use the private gateway resolver with eight workers and a 700 ms timeout.
+Multicast collection lasts 1.5 seconds per interface (at most four interfaces).
+SSDP location URLs are never fetched. A failed ping cannot override positive
+neighbor or multicast presence. Names retain detected/manual provenance.

@@ -136,7 +136,7 @@ async function writeDiscovery(
   response: ServerResponse,
   request: { headers: { origin?: string } }
 ): Promise<void> {
-  const discovery = await discoverNetwork(networkAdapter);
+  const discovery = await discoverNetwork(networkAdapter, { enrich: true });
 
   writeJson(response, request, 200, discovery);
 }
@@ -145,7 +145,7 @@ async function writeDevices(
   response: ServerResponse,
   request: { headers: { origin?: string } }
 ): Promise<void> {
-  const discovery = await discoverNetwork(networkAdapter);
+  const discovery = await discoverNetwork(networkAdapter, { enrich: true });
   const identification = identifyDevices(discovery);
 
   historyStore.recordDevices(identification.devices);

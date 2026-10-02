@@ -16,6 +16,12 @@ export interface ManualDeviceAlias {
 }
 
 export interface IdentificationInput {
+  names?: readonly {
+    ip: string;
+    hostname: string | null;
+    source: "dns" | "mdns" | "ssdp";
+    service?: string;
+  }[];
   neighbors: readonly NeighborEntry[];
   pings: readonly PingResult[];
   observedAt?: Date;
@@ -93,14 +99,40 @@ export function identifyDevices(
     };
 
     device.identity.ip = ping.ip;
-    device.identity.lastSeenAt = maxDate(
-      device.identity.lastSeenAt,
-      observedAt
-    );
-    device.identity.status = ping.reachable ? "online" : "offline";
+    if (ping.reachable) {
+      device.identity.lastSeenAt = maxDate(
+        device.identity.lastSeenAt,
+        observedAt
+      );
+      device.identity.status = "online";
+    }
     device.evidence.push(evidence);
     devicesById.set(deviceId, device);
     deviceIdByIp.set(ping.ip, deviceId);
+  }
+
+  for (const name of input.names ?? []) {
+    const id = deviceIdByIp.get(name.ip) ?? getDeviceId(null, name.ip);
+    const device =
+      devicesById.get(id) ?? createDevice(id, null, name.ip, observedAt);
+    if (name.hostname) {
+      device.identity.hostname = name.hostname;
+      device.identity.displayName = name.hostname;
+      device.claims.displayName = {
+        value: name.hostname,
+        confidence: 0.9,
+        source: "detected"
+      };
+    }
+    if (name.source !== "dns") device.identity.status = "online";
+    device.evidence.push({
+      source: name.source,
+      value: name,
+      confidence: 0.9,
+      observedAt
+    });
+    devicesById.set(id, device);
+    deviceIdByIp.set(name.ip, id);
   }
 
   for (const device of devicesById.values()) {
@@ -172,7 +204,7 @@ function applyManualAlias(
 }
 
 function refreshDisplayNameClaim(device: IdentifiedDevice): void {
-  if (device.claims.displayName.source === "manual") {
+  if (device.claims.displayName.source !== "inferred") {
     return;
   }
 

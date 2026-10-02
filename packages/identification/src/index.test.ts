@@ -3,6 +3,26 @@ import { describe, expect, it } from "vitest";
 import { identifyDevices } from "./index.js";
 
 describe("device identification", () => {
+  it("preserves online neighbor evidence when ICMP is ignored", () => {
+    const result = identifyDevices({
+      neighbors: [
+        {
+          ip: "192.168.3.40",
+          mac: "AA:BB:CC:DD:EE:FF",
+          state: "Reachable",
+          observedAt: new Date(),
+          interfaceName: "Wi-Fi"
+        }
+      ],
+      pings: [{ ip: "192.168.3.40", reachable: false, latencyMs: null }],
+      names: [{ ip: "192.168.3.40", hostname: "TV", source: "mdns" }]
+    });
+    expect(result.devices[0]?.identity).toMatchObject({
+      status: "online",
+      hostname: "TV"
+    });
+    expect(result.devices[0]?.claims.displayName.source).toBe("detected");
+  });
   it("correlates neighbor and ICMP evidence into one online device", () => {
     const observedAt = new Date("2026-10-02T13:00:00.000Z");
     const result = identifyDevices({
