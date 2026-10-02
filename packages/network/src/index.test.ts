@@ -33,6 +33,26 @@ describe("Windows network parsers", () => {
     ]);
   });
 
+  it("parses flattened interface output from Windows CIM objects", () => {
+    expect(
+      parseWindowsInterfaceOutput(
+        JSON.stringify({
+          InterfaceAlias: "Wi-Fi",
+          IPAddress: "192.168.3.10",
+          NextHop: "192.168.3.1",
+          PrefixLength: 24
+        })
+      )
+    ).toMatchObject([
+      {
+        address: "192.168.3.10",
+        cidr: "192.168.3.10/24",
+        gateway: "192.168.3.1",
+        name: "Wi-Fi"
+      }
+    ]);
+  });
+
   it("parses neighbors and normalizes MAC addresses", () => {
     const neighbors = parseWindowsNeighborOutput(
       JSON.stringify([
@@ -50,6 +70,44 @@ describe("Windows network parsers", () => {
       ip: "192.168.3.44",
       mac: "EA:57:FD:A3:38:C8",
       state: "Reachable"
+    });
+  });
+
+  it("ignores multicast, broadcast and empty MAC neighbor entries", () => {
+    const neighbors = parseWindowsNeighborOutput(
+      JSON.stringify([
+        {
+          IPAddress: "192.168.3.1",
+          InterfaceAlias: "Wi-Fi",
+          LinkLayerAddress: "2c-a0-42-01-19-47",
+          State: 5
+        },
+        {
+          IPAddress: "192.168.3.255",
+          InterfaceAlias: "Wi-Fi",
+          LinkLayerAddress: "ff-ff-ff-ff-ff-ff",
+          State: 6
+        },
+        {
+          IPAddress: "224.0.0.251",
+          InterfaceAlias: "Wi-Fi",
+          LinkLayerAddress: "01-00-5e-00-00-fb",
+          State: 6
+        },
+        {
+          IPAddress: "192.168.3.44",
+          InterfaceAlias: "Wi-Fi",
+          LinkLayerAddress: "00-00-00-00-00-00",
+          State: 0
+        }
+      ])
+    );
+
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0]).toMatchObject({
+      ip: "192.168.3.1",
+      mac: "2C:A0:42:01:19:47",
+      state: "5"
     });
   });
 });

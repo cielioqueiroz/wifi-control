@@ -4,7 +4,8 @@
 
 - Bind to `127.0.0.1` by default.
 - Do not expose the API to the LAN by default.
-- Keep CORS restricted when HTTP endpoints are expanded.
+- Keep CORS restricted to the local web origins when HTTP endpoints are
+  expanded.
 - Validate inputs with Zod.
 - Limit payload size and return safe error messages.
 

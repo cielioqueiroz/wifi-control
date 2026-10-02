@@ -130,7 +130,7 @@ function createDevice(
     id: deviceId,
     ip,
     lastSeenAt: observedAt,
-    manufacturer: privateMac ? null : null,
+    manufacturer: null,
     mac,
     operatingSystem: null,
     privateMac,
@@ -190,7 +190,11 @@ function getDeviceId(mac: string | null, ip: string): string {
 }
 
 function getNeighborStatus(state: string | null): DeviceIdentity["status"] {
-  return state?.toLowerCase() === "reachable" ? "online" : "unknown";
+  const normalizedState = state?.toLowerCase();
+
+  return normalizedState === "reachable" || normalizedState === "5"
+    ? "online"
+    : "unknown";
 }
 
 function maxDate(left: Date, right: Date): Date {

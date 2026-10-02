@@ -13,6 +13,12 @@ const statusClassName: Record<DeviceStatus, string> = {
   unknown: "border-amber-300 bg-amber-50 text-amber-700"
 };
 
+const statusLabel: Record<DeviceStatus, string> = {
+  offline: "Offline",
+  online: "Online",
+  unknown: "Unknown"
+};
+
 export function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
   return (
     <span
@@ -22,7 +28,7 @@ export function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
         statusClassName[status]
       )}
     >
-      {status}
+      {statusLabel[status]}
     </span>
   );
 }

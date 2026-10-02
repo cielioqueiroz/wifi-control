@@ -10,3 +10,6 @@
 - Keep Phase 2 correlation deterministic and evidence-preserving: MAC is a
   correlation key when available, IP is the fallback, and manual aliases only
   replace the display claim.
+- Keep the Dashboard local-first: it reads the agent over loopback-only CORS,
+  makes session-only rename/trust changes until persistence is implemented, and
+  keeps router blocking visibly unavailable.

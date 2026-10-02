@@ -12,37 +12,44 @@ import { UnsupportedRouterAdapter } from "@wifi-control/router-adapters";
 const config = readLocalApiConfig();
 const networkAdapter = createPlatformNetworkAdapter();
 const routerAdapter = new UnsupportedRouterAdapter();
+const allowedOrigins = new Set([
+  "http://127.0.0.1:3000",
+  "http://localhost:3000"
+]);
 
 const server = createServer((request, response) => {
+  if (request.method === "OPTIONS") {
+    response.writeHead(204, getCorsHeaders(request.headers.origin));
+    response.end();
+    return;
+  }
+
   if (request.method !== "GET") {
-    response.writeHead(405, { "content-type": "application/json" });
-    response.end(JSON.stringify({ error: "Method not allowed" }));
+    writeJson(response, request, 405, { error: "Method not allowed" });
     return;
   }
 
   if (request.url === "/health") {
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({ ok: true }));
+    writeJson(response, request, 200, { ok: true });
     return;
   }
 
   if (request.url === "/status") {
-    void writeStatus(response);
+    void writeStatus(response, request);
     return;
   }
 
   if (request.url === "/discover") {
-    void writeDiscovery(response);
+    void writeDiscovery(response, request);
     return;
   }
 
   if (request.url === "/devices") {
-    void writeDevices(response);
+    void writeDevices(response, request);
     return;
   }
 
-  response.writeHead(404, { "content-type": "application/json" });
-  response.end(JSON.stringify({ error: "Not found" }));
+  writeJson(response, request, 404, { error: "Not found" });
 });
 
 server.listen(config.port, config.host, () => {
@@ -51,37 +58,67 @@ server.listen(config.port, config.host, () => {
   );
 });
 
-async function writeStatus(response: ServerResponse): Promise<void> {
+async function writeStatus(
+  response: ServerResponse,
+  request: { headers: { origin?: string } }
+): Promise<void> {
   const [interfaces, router] = await Promise.all([
     networkAdapter.getInterfaces(),
     routerAdapter.getInfo()
   ]);
 
-  response.writeHead(200, { "content-type": "application/json" });
-  response.end(
-    JSON.stringify({
-      interfaces,
-      router,
-      scanner: {
-        endpoint: "/discover",
-        platform: process.platform,
-        ready: true
-      }
-    })
-  );
+  writeJson(response, request, 200, {
+    interfaces,
+    router,
+    scanner: {
+      endpoint: "/discover",
+      platform: process.platform,
+      ready: true
+    }
+  });
 }
 
-async function writeDiscovery(response: ServerResponse): Promise<void> {
+async function writeDiscovery(
+  response: ServerResponse,
+  request: { headers: { origin?: string } }
+): Promise<void> {
   const discovery = await discoverNetwork(networkAdapter);
 
-  response.writeHead(200, { "content-type": "application/json" });
-  response.end(JSON.stringify(discovery));
+  writeJson(response, request, 200, discovery);
 }
 
-async function writeDevices(response: ServerResponse): Promise<void> {
+async function writeDevices(
+  response: ServerResponse,
+  request: { headers: { origin?: string } }
+): Promise<void> {
   const discovery = await discoverNetwork(networkAdapter);
   const identification = identifyDevices(discovery);
 
-  response.writeHead(200, { "content-type": "application/json" });
-  response.end(JSON.stringify(identification));
+  writeJson(response, request, 200, identification);
+}
+
+function getCorsHeaders(origin: string | undefined): Record<string, string> {
+  if (!origin || !allowedOrigins.has(origin)) {
+    return {};
+  }
+
+  return {
+    "access-control-allow-headers": "content-type",
+    "access-control-allow-methods": "GET, OPTIONS",
+    "access-control-allow-origin": origin,
+    vary: "Origin"
+  };
+}
+
+function writeJson(
+  response: ServerResponse,
+  request: { headers: { origin?: string } },
+  statusCode: number,
+  payload: unknown
+): void {
+  response.writeHead(statusCode, {
+    "content-type": "application/json",
+    ...getCorsHeaders(request.headers.origin)
+  });
+  response.end(JSON.stringify(payload));
 }

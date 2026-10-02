@@ -1,7 +1,7 @@
 # Project State
 
 Current phase:
-Phase 2 - Device Identification complete.
+Phase 3 - Dashboard complete.
 
 In progress:
 
@@ -22,10 +22,14 @@ Completed:
 - Evidence correlation package, private-MAC protection, manual aliases, and
   local `/devices` endpoint implemented.
 - Phase 2 tests and monorepo validation passed.
+- Operational Dashboard with real agent data, responsive table, filters,
+  details drawer, local rename/trust actions, and explicit connection states.
+- Local CORS, interface timeout handling, and reserved neighbor filtering
+  validated against the Windows runtime.
 
 Next:
 
-- Start Phase 3 - Dashboard.
+- Start Phase 4 - History.
 
 Known issues:
 

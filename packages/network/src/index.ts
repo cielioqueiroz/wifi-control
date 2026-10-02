@@ -123,13 +123,18 @@ export function parseWindowsNeighborOutput(output: string): NeighborEntry[] {
   return parsePowerShellRecords(output).flatMap((record) => {
     const ip = readString(record, "IPAddress");
 
-    if (!ip || !isValidIPv4(ip)) {
+    if (!ip || !isValidIPv4(ip) || isReservedNeighborIPv4(ip)) {
       return [];
     }
 
     const rawMac =
       readString(record, "LinkLayerAddress") ??
       readString(record, "MacAddress");
+    const mac = normalizeMacAddress(rawMac);
+
+    if (rawMac && !mac) {
+      return [];
+    }
 
     return [
       {
@@ -137,7 +142,7 @@ export function parseWindowsNeighborOutput(output: string): NeighborEntry[] {
           readString(record, "InterfaceAlias") ??
           readString(record, "InterfaceIndex"),
         ip,
-        mac: normalizeMacAddress(rawMac),
+        mac,
         observedAt,
         state: readString(record, "State")
       }
@@ -150,7 +155,12 @@ export function normalizeMacAddress(mac: string | null): string | null {
     return null;
   }
 
-  return mac.replaceAll("-", ":").toUpperCase();
+  const normalized = mac.replaceAll("-", ":").toUpperCase();
+
+  return normalized === "00:00:00:00:00:00" ||
+    normalized === "FF:FF:FF:FF:FF:FF"
+    ? null
+    : normalized;
 }
 
 export function isPrivateIPv4(address: string): boolean {
@@ -299,7 +309,7 @@ export class WindowsNetworkAdapter implements NetworkPlatformAdapter {
 
   async getInterfaces(): Promise<NetworkInterface[]> {
     const output = await runPowerShell(
-      "Get-NetIPConfiguration | Where-Object { $_.IPv4Address -ne $null } | Select-Object InterfaceAlias,IPv4Address,IPv4DefaultGateway | ConvertTo-Json -Compress -Depth 4"
+      "Get-NetIPConfiguration | Where-Object { $_.IPv4Address -ne $null } | ForEach-Object { $address = @($_.IPv4Address) | Select-Object -First 1; [pscustomobject]@{ InterfaceAlias = $_.InterfaceAlias; IPAddress = $address.IPAddress; PrefixLength = $address.PrefixLength; NextHop = $_.IPv4DefaultGateway.NextHop } } | ConvertTo-Json -Compress"
     );
 
     return parseWindowsInterfaceOutput(output);
@@ -350,7 +360,7 @@ async function runPowerShell(command: string): Promise<string> {
     const { stdout } = await execFile(
       "powershell.exe",
       ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command],
-      { maxBuffer: 256 * 1024, timeout: 5_000, windowsHide: true }
+      { maxBuffer: 256 * 1024, timeout: 15_000, windowsHide: true }
     );
 
     return stdout;
@@ -396,7 +406,13 @@ function readString(
   key: string
 ): string | null {
   const value = record?.[key];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  return typeof value === "number" && Number.isFinite(value)
+    ? String(value)
+    : null;
 }
 
 function readNumber(
@@ -414,6 +430,18 @@ function readNumber(
 
 function isRecord(value: unknown): value is PowerShellRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isReservedNeighborIPv4(address: string): boolean {
+  const octets = parseIPv4(address);
+
+  if (!octets) {
+    return true;
+  }
+
+  const [first, , , last] = octets;
+
+  return first >= 224 || last === 255;
 }
 
 function parsePingLatency(output: string): number | null {

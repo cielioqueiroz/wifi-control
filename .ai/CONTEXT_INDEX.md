@@ -13,6 +13,7 @@ Device identification:
 UI:
 
 - `docs/DESIGN_SYSTEM.md`
+- `specs/004-dashboard/`
 - `apps/web/`
 - `packages/ui/`
 
