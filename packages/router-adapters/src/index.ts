@@ -135,6 +135,8 @@ export class UnsupportedRouterAdapter implements RouterAdapter {
 
 export class MockRouterAdapter extends UnsupportedRouterAdapter {}
 
+export { HuaweiAx2Adapter } from "./huawei-ax2.js";
+
 function normalizeMac(value: string): string | null {
   const normalized = value.replaceAll("-", ":").toLowerCase();
 

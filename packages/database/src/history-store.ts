@@ -356,4 +356,12 @@ const HISTORY_SCHEMA = `
     occurred_at INTEGER NOT NULL,
     metadata_json TEXT
   );
+  CREATE TABLE IF NOT EXISTS router_actions (
+    id TEXT PRIMARY KEY,
+    device_id TEXT,
+    action TEXT NOT NULL,
+    status TEXT NOT NULL,
+    requested_at INTEGER NOT NULL,
+    result_json TEXT NOT NULL
+  );
 `;

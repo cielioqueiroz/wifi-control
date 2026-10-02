@@ -1,7 +1,7 @@
 # Project State
 
 Current phase:
-Phase 5 - Router control safety foundation.
+Phase 5 - Router control adapter and guarded actions.
 
 In progress:
 
@@ -32,15 +32,17 @@ Completed:
   presence summary through the local `/history` endpoint.
 - Phase 4 tests, full QA, and a real Windows discovery/history round trip
   passed.
-- Router action safety policy validates confirmation and protected targets
-  without performing router I/O; the unsupported adapter remains the default.
+- Router action safety policy validates confirmation and protected targets.
+- Huawei AX2 adapter implements the official SCRAM login flow, device listing,
+  dual-band MAC filter updates, and guarded block/unblock routes.
 - Local router configuration now accepts only adapter, endpoint, gateway, and a
-  non-secret credential reference; passwords are not read by the application.
+  non-secret credential reference. Runtime credentials are accepted only from
+  process environment values and are never stored or returned.
 
 Next:
 
-- Configure credentials locally and explicitly activate a documented router
-  adapter before implementing block/unblock I/O.
+- Configure the local runtime credentials and perform a harmless read-only AX2
+  round trip before using an explicitly confirmed block/unblock action.
 
 Known issues:
 

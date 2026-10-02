@@ -68,4 +68,19 @@ describe("HistoryStore", () => {
 
     store.close();
   });
+
+  it("records router actions in the audit table", () => {
+    const store = new HistoryStore(":memory:");
+
+    expect(() =>
+      store.recordRouterAction({
+        action: "block",
+        deviceId: "mac-aabbccddeeff",
+        result: { ok: false, reason: "confirmation_required" },
+        status: "failed"
+      })
+    ).not.toThrow();
+
+    store.close();
+  });
 });

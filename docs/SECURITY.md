@@ -29,13 +29,16 @@ equivalent secure store.
 
 The router configuration may contain only a non-secret credential reference,
 such as a Windows Credential Manager target name. It must never contain the
-router password itself.
+router password itself. The current local adapter accepts credentials only as
+process environment values for development and operations; set them at process
+start and never save them in `.env`, SQLite, shell history, or source control.
 
 ## Router Control
 
-Future blocking must protect the gateway, current host, broadcast addresses,
-invalid addresses, and accidental bulk actions. Require confirmation and record
-auditable actions.
+Blocking protects the gateway, current host, broadcast addresses, invalid
+addresses, and accidental bulk actions. It requires the exact confirmation
+`BLOQUEAR` or `DESBLOQUEAR` and records the request and result in the audit
+history.
 
 ## Privacy
 
