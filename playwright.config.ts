@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: "./apps/web/e2e",
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://127.0.0.1:3011",
     trace: "on-first-retry"
   },
   projects: [
@@ -14,9 +14,10 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: "pnpm --filter @wifi-control/web dev",
+    command:
+      "pnpm --filter @wifi-control/web exec next dev --hostname 127.0.0.1 --port 3011",
     reuseExistingServer: true,
     timeout: 120000,
-    url: "http://127.0.0.1:3000"
+    url: "http://127.0.0.1:3011"
   }
 });

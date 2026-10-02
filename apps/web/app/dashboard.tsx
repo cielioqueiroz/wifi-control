@@ -25,12 +25,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 
 import { StatusBadge } from "@wifi-control/ui";
+import { writeApi } from "./api";
+import { RouterPanel, RouterDeviceControl } from "./router-panel";
 
 type DeviceStatus = "online" | "offline" | "unknown";
 type TrustStatus = "unknown" | "trusted" | "blocked";
 type ConnectionState = "loading" | "ready" | "offline" | "error";
 type DeviceFilter = "all" | DeviceStatus;
-type DashboardView = "network" | "history";
+type DashboardView = "network" | "history" | "router" | "trust";
 
 interface ApiDevice {
   identity: {
@@ -57,6 +59,7 @@ interface ApiDevice {
 }
 
 interface DevicesResponse {
+  warning?: string | null;
   devices: ApiDevice[];
   evidence: unknown[];
 }
@@ -149,6 +152,12 @@ export default function Dashboard(): JSX.Element {
 
       setDevices(devicesResult.value.devices.map(normalizeDevice));
       setConnectionState("ready");
+      if (devicesResult.value.warning)
+        setNotice({
+          title: "Varredura incompleta",
+          message: devicesResult.value.warning,
+          tone: "warning"
+        });
 
       if (statusResult.status === "fulfilled") {
         setAgentStatus(statusResult.value);
@@ -185,7 +194,9 @@ export default function Dashboard(): JSX.Element {
 
     return devices.filter((device) => {
       const identity = device.identity;
-      const matchesFilter = filter === "all" || identity.status === filter;
+      const matchesFilter =
+        (filter === "all" || identity.status === filter) &&
+        (view !== "trust" || identity.trustStatus !== "trusted");
       const searchable = [
         identity.displayName,
         identity.ip,
@@ -202,7 +213,7 @@ export default function Dashboard(): JSX.Element {
         (!normalizedQuery || searchable.includes(normalizedQuery))
       );
     });
-  }, [devices, filter, query]);
+  }, [devices, filter, query, view]);
 
   const metrics = useMemo(() => {
     const online = devices.filter(
@@ -218,52 +229,38 @@ export default function Dashboard(): JSX.Element {
     return { online, privateMacs, total: devices.length, unknown };
   }, [devices]);
 
-  function renameDevice(deviceId: string, displayName: string): void {
-    const cleanName = displayName.trim();
-
-    if (!cleanName) {
-      return;
+  async function updateDevice(
+    deviceId: string,
+    input: { alias?: string; trustStatus?: "trusted" | "unknown" }
+  ): Promise<void> {
+    try {
+      const result = await writeApi<DevicesResponse>("/devices/preferences", {
+        deviceId,
+        ...input
+      });
+      setDevices(result.devices.map(normalizeDevice));
+      setNotice({
+        title: "Alteração salva",
+        message: "Preferências atualizadas.",
+        tone: "info"
+      });
+    } catch (error) {
+      setNotice({
+        title: "Não foi possível salvar",
+        message:
+          error instanceof Error ? error.message : "Agente indisponível.",
+        tone: "error"
+      });
     }
+  }
 
-    setDevices((current) =>
-      current.map((device) =>
-        device.identity.id === deviceId
-          ? {
-              ...device,
-              identity: { ...device.identity, displayName: cleanName }
-            }
-          : device
-      )
-    );
-    setNotice({
-      message:
-        "O nome foi aplicado nesta sessão local. A persistência chega com o histórico.",
-      title: "Nome atualizado",
-      tone: "info"
-    });
+  function renameDevice(deviceId: string, displayName: string): void {
+    void updateDevice(deviceId, { alias: displayName.trim() });
   }
 
   function setTrust(deviceId: string, trustStatus: TrustStatus): void {
-    setDevices((current) =>
-      current.map((device) =>
-        device.identity.id === deviceId
-          ? {
-              ...device,
-              identity: { ...device.identity, trustStatus }
-            }
-          : device
-      )
-    );
-    setNotice({
-      message: "A classificação foi aplicada nesta sessão local.",
-      title:
-        trustStatus === "trusted"
-          ? "Dispositivo confiável"
-          : "Dispositivo bloqueado",
-      tone: trustStatus === "trusted" ? "info" : "warning"
-    });
+    if (trustStatus !== "blocked") void updateDevice(deviceId, { trustStatus });
   }
-
   return (
     <main className="dashboard-shell">
       <Sidebar activeView={view} onNavigate={setView} />
@@ -278,7 +275,16 @@ export default function Dashboard(): JSX.Element {
           <div className="breadcrumb">
             <span className="eyebrow">REDE LOCAL</span>
             <ChevronRight size={14} />
-            <span>{view === "network" ? "Visão geral" : "Histórico"}</span>
+            <span>
+              {
+                {
+                  network: "Visão geral",
+                  history: "Histórico",
+                  router: "Roteador",
+                  trust: "Central de confiança"
+                }[view]
+              }
+            </span>
           </div>
           <div className="topbar-actions">
             <span className={`agent-pill ${connectionState}`}>
@@ -304,12 +310,32 @@ export default function Dashboard(): JSX.Element {
         </header>
 
         <div className="content-wrap">
-          {view === "network" ? (
+          <label className="mobile-navigation">
+            Seção
+            <select
+              aria-label="Seção"
+              value={view}
+              onChange={(event) => {
+                setSelectedId(null);
+                setView(event.target.value as DashboardView);
+              }}
+            >
+              <option value="network">Rede</option>
+              <option value="history">Histórico</option>
+              <option value="trust">Central de confiança</option>
+              <option value="router">Roteador</option>
+            </select>
+          </label>
+          {view === "network" || view === "trust" ? (
             <>
               <section className="page-heading reveal reveal-one">
                 <div>
                   <p className="eyebrow">REDE / ESCRITÓRIO</p>
-                  <h1>Visão geral da rede</h1>
+                  <h1>
+                    {view === "trust"
+                      ? "Dispositivos para revisar"
+                      : "Visão geral da rede"}
+                  </h1>
                   <p className="lede">
                     Um retrato local, legível e sem suposições sobre quem está
                     na sua rede.
@@ -488,6 +514,8 @@ export default function Dashboard(): JSX.Element {
                 ) : null}
               </section>
             </>
+          ) : view === "router" ? (
+            <RouterPanel />
           ) : (
             <HistoryPanel />
           )}
@@ -496,6 +524,7 @@ export default function Dashboard(): JSX.Element {
 
       {selectedDevice ? (
         <DeviceDrawer
+          key={selectedDevice.identity.id}
           device={selectedDevice}
           onClose={() => setSelectedId(null)}
           onRename={renameDevice}
@@ -532,7 +561,12 @@ function Sidebar({
           label="Rede"
           onClick={() => onNavigate("network")}
         />
-        <NavItem icon={<MonitorSmartphone size={16} />} label="Dispositivos" />
+        <NavItem
+          active={activeView === "router"}
+          icon={<Server size={16} />}
+          label="Roteador"
+          onClick={() => onNavigate("router")}
+        />
         <NavItem
           active={activeView === "history"}
           icon={<History size={16} />}
@@ -542,6 +576,8 @@ function Sidebar({
         <NavItem
           icon={<ShieldCheck size={16} />}
           label="Central de confiança"
+          active={activeView === "trust"}
+          onClick={() => onNavigate("trust")}
         />
       </nav>
       <div className="sidebar-bottom">
@@ -550,7 +586,7 @@ function Sidebar({
           SOMENTE LOCAL
         </div>
         <p>As evidências permanecem nesta máquina.</p>
-        <span className="version">v0.1 / FUNDAÇÃO</span>
+        <span className="version">v1.0 / LOCAL</span>
       </div>
     </aside>
   );
@@ -813,6 +849,7 @@ function HistoryError({
 function getHistoryEventTitle(
   event: HistoryResponse["events"][number]
 ): string {
+  if (event.type === "device_updated") return "Preferências atualizadas";
   return event.type === "status_changed"
     ? "Mudança de status"
     : "Dispositivo descoberto";
@@ -822,6 +859,8 @@ function getHistoryEventDescription(
   event: HistoryResponse["events"][number]
 ): string {
   const name = event.deviceName ?? "Dispositivo não identificado";
+  if (event.type === "device_updated")
+    return `${name} teve suas preferências atualizadas.`;
 
   if (event.type !== "status_changed") {
     return `${name} foi observado na rede.`;
@@ -986,6 +1025,18 @@ function DeviceDrawer({
             label="Tipo de dispositivo"
             value={device.identity.deviceType ?? "Desconhecido"}
           />
+          <DetailRow
+            label="Nome detectado"
+            value={device.identity.hostname ?? "Não observado"}
+          />
+          <DetailRow
+            label="Primeira presença"
+            value={formatHistoryDate(device.identity.firstSeenAt)}
+          />
+          <DetailRow
+            label="Última presença"
+            value={formatHistoryDate(device.identity.lastSeenAt)}
+          />
         </div>
         <div className="drawer-section">
           <p className="drawer-label">Ações locais</p>
@@ -1000,6 +1051,8 @@ function DeviceDrawer({
             >
               <input
                 aria-label="Nome do dispositivo"
+                maxLength={80}
+                required
                 autoFocus
                 onChange={(event) => setName(event.target.value)}
                 value={name}
@@ -1037,35 +1090,40 @@ function DeviceDrawer({
             </button>
             <button
               className={
-                device.identity.trustStatus === "blocked"
+                device.identity.trustStatus === "unknown"
                   ? "trust-button danger selected"
                   : "trust-button danger"
               }
-              onClick={() => onTrust(device.identity.id, "blocked")}
+              onClick={() => onTrust(device.identity.id, "unknown")}
               type="button"
             >
               <ShieldOff size={15} />
-              Bloquear
+              Remover confiança
             </button>
           </div>
         </div>
-        <div className="router-lock">
-          <ShieldAlert size={17} />
-          <span>
-            <strong>Controle do roteador indisponível</strong>
-            <small>
-              O bloqueio no roteador está desativado até que um adaptador
-              compatível e acesso administrativo autorizado sejam configurados.
-            </small>
-          </span>
-        </div>
+        <RouterDeviceControl
+          deviceId={device.identity.id}
+          mac={device.identity.mac}
+          name={device.identity.displayName}
+        />
         <div className="drawer-section evidence-section">
           <p className="drawer-label">
             Trilha de evidências <span>{device.evidence.length}</span>
           </p>
           {device.evidence.map((item, index) => (
             <div className="evidence-row" key={`${item.source}-${index}`}>
-              <span className="evidence-source">{item.source}</span>
+              <span className="evidence-source">
+                {{
+                  neighbor: "Tabela de vizinhos",
+                  arp: "ARP",
+                  icmp: "Ping",
+                  dns: "DNS reverso",
+                  mdns: "mDNS",
+                  ssdp: "SSDP",
+                  oui: "Fabricante"
+                }[item.source] ?? item.source}
+              </span>
               <span>{Math.round(item.confidence * 100)}% de confiança</span>
             </div>
           ))}

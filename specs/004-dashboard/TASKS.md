@@ -5,5 +5,7 @@
 - [x] Add loading, empty, degraded, error, and offline states.
 - [x] Add search, status filters, and responsive device table.
 - [x] Add device details drawer with evidence trail.
-- [x] Add session rename and trust actions.
-- [x] Keep router block control visibly unavailable.
+- [x] Persist rename and trust actions through the local agent.
+- [x] Keep router control unavailable without configured credentials; require explicit confirmation when available.
+- [x] Provide mobile navigation, router status and administrative audit.
+- [x] Cover rename persistence, confirmation and responsive layout with Playwright.

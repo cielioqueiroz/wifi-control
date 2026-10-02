@@ -53,11 +53,34 @@ export class HuaweiAx2Adapter {
   private readonly fetchImpl: typeof fetch;
   private readonly gatewayIp: string;
   private session: Session | null = null;
+  private loginPromise: Promise<Session> | null = null;
+  private actionQueue: Promise<unknown> = Promise.resolve();
 
   constructor(options: HuaweiAx2AdapterOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, "");
+    const url = new URL(options.baseUrl);
+    const gateway = options.gatewayIp ?? "192.168.3.1";
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.hostname !== gateway ||
+      url.username ||
+      url.password ||
+      url.port ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash
+    )
+      throw new Error(
+        "O endereço do roteador deve corresponder ao gateway local."
+      );
+    this.baseUrl = url.origin;
     this.credentialProvider = options.credentialProvider;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    const transport = options.fetchImpl ?? fetch;
+    this.fetchImpl = (input, init) =>
+      transport(input, {
+        ...init,
+        redirect: "error",
+        signal: AbortSignal.timeout(8000)
+      });
     this.gatewayIp = options.gatewayIp ?? "192.168.3.1";
   }
 
@@ -101,11 +124,22 @@ export class HuaweiAx2Adapter {
   }
 
   async blockDevice(mac: string): Promise<RouterActionResult> {
-    return this.updateBlockList(mac, true);
+    return this.queueAction(mac, true);
   }
 
   async unblockDevice(mac: string): Promise<RouterActionResult> {
-    return this.updateBlockList(mac, false);
+    return this.queueAction(mac, false);
+  }
+
+  private queueAction(
+    mac: string,
+    blocked: boolean
+  ): Promise<RouterActionResult> {
+    const pending = this.actionQueue.then(() =>
+      this.updateBlockList(mac, blocked)
+    );
+    this.actionQueue = pending.catch(() => undefined);
+    return pending;
   }
 
   private async updateBlockList(
@@ -124,7 +158,7 @@ export class HuaweiAx2Adapter {
 
     const configs = await this.getFilterConfigs();
 
-    if (configs.some((config) => config.MACAddressControlEnabled === false)) {
+    if (configs.some((config) => config.MACAddressControlEnabled !== true)) {
       return {
         code: "unsupported",
         ok: false,
@@ -136,6 +170,18 @@ export class HuaweiAx2Adapter {
     for (const config of configs) {
       const blocked = config.BMACAddresses ?? [];
       const allowed = config.WMACAddresses ?? [];
+      const destination = shouldBlock ? blocked : allowed;
+      if (
+        typeof config.MacFilterCapacity === "number" &&
+        destination.length >= config.MacFilterCapacity &&
+        !destination.some(
+          (entry) => entry.MACAddress.toUpperCase() === normalizedMac
+        )
+      )
+        return {
+          ok: false,
+          reason: "A lista do roteador atingiu sua capacidade."
+        };
       const entry = blocked.find(
         (candidate) => candidate.MACAddress.toUpperCase() === normalizedMac
       ) ?? { MACAddress: normalizedMac };
@@ -157,18 +203,31 @@ export class HuaweiAx2Adapter {
     configs.forEach((config, index) => {
       payload[index === 0 ? "config2g" : "config5g"] = toSubmitConfig(config);
     });
-    const response = await this.postJson("ntwk/wlanfilterenhance", {
-      data: payload
-    });
-
-    return responseError(response) ?? { ok: true };
+    const response = await this.postJson("ntwk/wlanfilterenhance", payload);
+    const error = responseError(response);
+    if (error) return error;
+    const verified = await this.getFilterConfigs();
+    if (
+      !verified.every(
+        (config) =>
+          (config.BMACAddresses ?? []).some(
+            (entry) => entry.MACAddress.toUpperCase() === normalizedMac
+          ) === shouldBlock
+      )
+    )
+      return {
+        ok: false,
+        reason:
+          "O roteador não confirmou a alteração. Atualize o estado antes de tentar novamente."
+      };
+    return { ok: true };
   }
 
   private async getFilterConfigs(): Promise<FilterConfig[]> {
     const payload = await this.getJson("ntwk/wlanfilterenhance");
     const records = asRecords(payload);
 
-    if (records.length < 2) {
+    if (records.length !== 2) {
       throw new Error(
         "O roteador não retornou as configurações de 2,4 e 5 GHz."
       );
@@ -190,6 +249,7 @@ export class HuaweiAx2Adapter {
     this.updateCookies(response, session);
 
     if (!response.ok) {
+      this.session = null;
       throw new Error(`O roteador respondeu com HTTP ${response.status}.`);
     }
 
@@ -210,6 +270,7 @@ export class HuaweiAx2Adapter {
     this.updateCookies(response, session);
 
     if (!response.ok) {
+      this.session = null;
       throw new Error(`O roteador respondeu com HTTP ${response.status}.`);
     }
 
@@ -226,12 +287,21 @@ export class HuaweiAx2Adapter {
       return this.session;
     }
 
+    if (!this.loginPromise)
+      this.loginPromise = this.login().finally(() => {
+        this.loginPromise = null;
+      });
+    return this.loginPromise;
+  }
+
+  private async login(): Promise<Session> {
     const loginPage = await this.fetchImpl(
       `${this.baseUrl}/html/index.html#/login`,
       { method: "GET" }
     );
     let cookie = readCookie(loginPage);
-    const csrf = parseCsrf(await loginPage.text());
+    if (!loginPage.ok) throw new Error("O painel do roteador não respondeu.");
+    let csrf = parseCsrf(await loginPage.text());
     const credentials = await this.credentialProvider.getCredentials();
     const firstNonce = randomBytes(24).toString("hex");
     const nonceResult = await this.postLogin(
@@ -241,13 +311,20 @@ export class HuaweiAx2Adapter {
       cookie
     );
     cookie = nonceResult.cookie;
+    csrf = readCsrf(nonceResult.payload) ?? csrf;
     const nonceResponse = nonceResult.payload;
     const nonceData = asRecord(nonceResponse);
     const salt = hexBuffer(nonceData.salt);
     const iterations = Number(nonceData.iterations);
     const finalNonce = asString(nonceData.servernonce);
 
-    if (!salt || !Number.isInteger(iterations) || !finalNonce) {
+    if (
+      !salt ||
+      !Number.isInteger(iterations) ||
+      iterations < 1 ||
+      iterations > 1_000_000 ||
+      !finalNonce
+    ) {
       throw new Error("O roteador não retornou um desafio SCRAM válido.");
     }
 
@@ -307,7 +384,7 @@ export class HuaweiAx2Adapter {
     }
 
     return {
-      cookie: readCookie(response) || cookie,
+      cookie: mergeCookies(cookie, readCookie(response)),
       payload: await response.json()
     };
   }
@@ -326,9 +403,10 @@ export class HuaweiAx2Adapter {
         ? response.headers.getSetCookie()
         : [];
     if (cookies.length > 0) {
-      session.cookie = cookies
-        .map((cookie) => cookie.split(";", 1)[0])
-        .join("; ");
+      session.cookie = mergeCookies(
+        session.cookie,
+        cookies.map((cookie) => cookie.split(";", 1)[0]).join("; ")
+      );
     }
   }
 }
@@ -396,7 +474,10 @@ function responseError(payload: unknown): RouterActionResult | null {
   const record = asRecord(payload);
   const error = Number(record.errcode ?? record.err);
 
-  if (Number.isNaN(error) || error === 0) {
+  if (
+    (record.errcode !== undefined || record.err !== undefined) &&
+    error === 0
+  ) {
     return null;
   }
 
@@ -438,9 +519,18 @@ function readCookie(response: Response): string {
 }
 
 function hexBuffer(value: unknown): Buffer | null {
-  return typeof value === "string" && /^[0-9a-f]+$/i.test(value)
+  return typeof value === "string" && /^(?:[0-9a-f]{2})+$/i.test(value)
     ? Buffer.from(value, "hex")
     : null;
+}
+
+function mergeCookies(existing: string, incoming: string): string {
+  const cookies = new Map<string, string>();
+  for (const part of [...existing.split("; "), ...incoming.split("; ")]) {
+    const index = part.indexOf("=");
+    if (index > 0) cookies.set(part.slice(0, index), part.slice(index + 1));
+  }
+  return [...cookies].map(([key, value]) => `${key}=${value}`).join("; ");
 }
 
 function hmac(key: Buffer, value: string | Buffer): Buffer {

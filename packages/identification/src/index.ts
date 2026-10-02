@@ -156,7 +156,7 @@ function createDevice(
   const privateMac = mac ? isPrivateMacAddress(mac) : false;
   const identity: DeviceIdentity = {
     deviceType: null,
-    displayName: "Unknown device",
+    displayName: "Dispositivo não identificado",
     firstSeenAt: observedAt,
     hostname: null,
     id: deviceId,

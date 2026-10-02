@@ -5,12 +5,31 @@ import { describe, expect, it } from "vitest";
 import { HuaweiAx2Adapter } from "./huawei-ax2.js";
 
 describe("HuaweiAx2Adapter", () => {
+  it("rejects endpoints that could receive credentials outside the gateway", () => {
+    for (const baseUrl of [
+      "http://example.com",
+      "http://192.168.3.1@evil.invalid",
+      "http://192.168.3.1/proxy"
+    ]) {
+      expect(
+        () =>
+          new HuaweiAx2Adapter({
+            baseUrl,
+            credentialProvider: {
+              getCredentials: () =>
+                Promise.resolve({ username: "admin", password: "test" })
+            }
+          })
+      ).toThrow();
+    }
+  });
   it("authenticates with the official SCRAM flow and manages the blocklist", async () => {
     const password = "teste-seguro";
     const salt = Buffer.from("00112233445566778899aabbccddeeff", "hex");
     const serverNonce = "server-nonce";
     const iterations = 1;
     let firstNonce = "";
+    let blocked = false;
     const calls: Array<{ body: string; method: string; url: string }> = [];
     const fetchImpl: typeof fetch = async (input, init) => {
       await Promise.resolve();
@@ -63,18 +82,29 @@ describe("HuaweiAx2Adapter", () => {
       if (url.endsWith("/wlanfilterenhance") && method === "GET") {
         return jsonResponse([
           {
-            BMACAddresses: [],
+            BMACAddresses: blocked ? [{ MACAddress: "AA:BB:CC:DD:EE:FF" }] : [],
             MACAddressControlEnabled: true,
             WMACAddresses: []
           },
           {
-            BMACAddresses: [],
+            BMACAddresses: blocked ? [{ MACAddress: "AA:BB:CC:DD:EE:FF" }] : [],
             MACAddressControlEnabled: true,
             WMACAddresses: []
           }
         ]);
       }
       if (url.endsWith("/wlanfilterenhance") && method === "POST") {
+        const request = JSON.parse(body) as {
+          data: {
+            config2g: { BMacFilters: unknown[] };
+            config5g: { BMacFilters: unknown[] };
+          };
+        };
+        expect(request.data.config2g.BMacFilters).toEqual([
+          { MACAddress: "AA:BB:CC:DD:EE:FF" }
+        ]);
+        expect(request.data.config5g.BMacFilters).toHaveLength(1);
+        blocked = true;
         return jsonResponse({ err: 0 });
       }
 
