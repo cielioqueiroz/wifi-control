@@ -62,6 +62,17 @@ export interface HistorySnapshot {
   events: HistoryEvent[];
 }
 
+export interface AppSettings {
+  notificationsEnabled: boolean;
+  desktopNotifications: boolean;
+  scanIntervalSeconds: number;
+  retentionDays: number;
+  theme: "light" | "dark" | "system";
+}
+export interface LocalNotification extends HistoryEvent {
+  read: boolean;
+}
+
 export interface RouterAuditInput {
   action: "block" | "unblock";
   deviceId: string | null;
@@ -295,6 +306,62 @@ export class HistoryStore {
       .all();
   }
 
+  getSettings(): AppSettings {
+    const row = this.database
+      .prepare("SELECT payload_json FROM app_settings WHERE id = 1")
+      .get() as { payload_json: string } | undefined;
+    return row
+      ? (JSON.parse(row.payload_json) as AppSettings)
+      : {
+          notificationsEnabled: true,
+          desktopNotifications: false,
+          scanIntervalSeconds: 60,
+          retentionDays: 90,
+          theme: "system"
+        };
+  }
+
+  updateSettings(settings: AppSettings): void {
+    this.database
+      .prepare(
+        "INSERT INTO app_settings (id, payload_json) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET payload_json = excluded.payload_json"
+      )
+      .run(JSON.stringify(settings));
+  }
+
+  getNotifications(): LocalNotification[] {
+    if (!this.getSettings().notificationsEnabled) return [];
+    const readIds = new Set(
+      (
+        this.database
+          .prepare("SELECT event_id FROM notification_reads")
+          .all() as { event_id: string }[]
+      ).map((row) => row.event_id)
+    );
+    return this.getSnapshot()
+      .events.filter(
+        (event) =>
+          event.type === "device_discovered" ||
+          (event.type === "status_changed" &&
+            ["online", "offline"].includes(String(event.metadata.to)))
+      )
+      .map((event) => ({ ...event, read: readIds.has(event.id) }));
+  }
+
+  markNotificationsRead(ids: readonly string[]): void {
+    const statement = this.database.prepare(
+      "INSERT OR IGNORE INTO notification_reads (event_id) SELECT id FROM activity_events WHERE id = ?"
+    );
+    this.database.exec("BEGIN IMMEDIATE TRANSACTION");
+    try {
+      for (const id of ids) statement.run(id);
+      this.database.exec("COMMIT");
+    } catch (error) {
+      this.database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   private saveDevice(device: HistoryDeviceInput): void {
     this.database
       .prepare(
@@ -520,6 +587,8 @@ const HISTORY_SCHEMA = `
   CREATE INDEX IF NOT EXISTS activity_events_time ON activity_events(occurred_at);
   CREATE INDEX IF NOT EXISTS observations_time ON observations(observed_at);
   CREATE INDEX IF NOT EXISTS evidence_time ON discovery_evidence(observed_at);
+  CREATE TABLE IF NOT EXISTS app_settings (id INTEGER PRIMARY KEY CHECK(id = 1), payload_json TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS notification_reads (event_id TEXT PRIMARY KEY REFERENCES activity_events(id) ON DELETE CASCADE);
 `;
 
 function decodeDevice(payload: string): HistoryDeviceInput {

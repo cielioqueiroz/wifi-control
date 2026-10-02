@@ -45,6 +45,18 @@ test.beforeEach(async ({ page }) => {
         scanner: { ready: true }
       };
     if (path === "/session") json = { token: "test-token" };
+    if (path === "/notifications") json = { notifications: [] };
+    if (path === "/settings")
+      json =
+        route.request().method() === "POST"
+          ? (route.request().postDataJSON() as unknown)
+          : {
+              notificationsEnabled: true,
+              desktopNotifications: false,
+              scanIntervalSeconds: 60,
+              retentionDays: 90,
+              theme: "light"
+            };
     if (path === "/router/devices")
       json = {
         connected: [
@@ -136,4 +148,22 @@ test("desktop and mobile navigation fit the viewport", async ({
       )
     ).toBe(true);
   }
+});
+
+test("preferences apply dark mode and notifications remain accessible", async ({
+  page
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Preferências", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Aparência", exact: true })
+    .selectOption("dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("status")).toContainText("Preferências salvas.");
+  await page.screenshot({
+    path: testInfo.outputPath("preferences-dark.png"),
+    fullPage: true
+  });
+  await page.getByRole("button", { name: "Notificações", exact: true }).click();
+  await expect(page.getByText("Nenhuma notificação registrada.")).toBeVisible();
 });

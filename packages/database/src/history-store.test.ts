@@ -36,6 +36,21 @@ function makeDevice(
 }
 
 describe("HistoryStore", () => {
+  it("deduplicates notifications and persists read state", () => {
+    const store = new HistoryStore(":memory:");
+    store.recordDevices([makeDevice("online", "2026-10-02T10:00:00.000Z")]);
+    store.recordDevices([makeDevice("online", "2026-10-02T10:01:00.000Z")]);
+    expect(store.getNotifications()).toHaveLength(1);
+    const id = store.getNotifications()[0]!.id;
+    store.markNotificationsRead([id]);
+    expect(store.getNotifications()[0]?.read).toBe(true);
+    store.updateSettings({
+      ...store.getSettings(),
+      notificationsEnabled: false
+    });
+    expect(store.getNotifications()).toEqual([]);
+    store.close();
+  });
   it("keeps manual preferences and presence timestamps across scans", () => {
     const store = new HistoryStore(":memory:");
     store.recordDevices([makeDevice("online", "2026-10-02T10:00:00.000Z")]);

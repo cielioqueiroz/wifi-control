@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Bell,
+  Settings,
   Check,
   ChevronRight,
   CircleAlert,
@@ -25,14 +27,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 
 import { StatusBadge } from "@wifi-control/ui";
-import { writeApi } from "./api";
+import { readApi, writeApi } from "./api";
+import {
+  defaultSettings,
+  useLocalNotifications,
+  SettingsPanel,
+  NotificationsPanel,
+  type Settings as AppSettings
+} from "./preferences";
 import { RouterPanel, RouterDeviceControl } from "./router-panel";
 
 type DeviceStatus = "online" | "offline" | "unknown";
 type TrustStatus = "unknown" | "trusted" | "blocked";
 type ConnectionState = "loading" | "ready" | "offline" | "error";
 type DeviceFilter = "all" | DeviceStatus;
-type DashboardView = "network" | "history" | "router" | "trust";
+type DashboardView =
+  "network" | "history" | "router" | "trust" | "settings" | "notifications";
 
 interface ApiDevice {
   identity: {
@@ -92,7 +102,12 @@ interface AgentStatus {
     name: string;
   }>;
   router: { available: boolean; model: string | null };
-  scanner: { endpoint: string; platform: string; ready: boolean };
+  scanner: {
+    endpoint: string;
+    platform: string;
+    ready: boolean;
+    lastScanAt?: number;
+  };
 }
 
 interface Notice {
@@ -105,6 +120,27 @@ const AGENT_URL =
   process.env.NEXT_PUBLIC_LOCAL_AGENT_URL ?? "http://127.0.0.1:4317";
 
 export default function Dashboard(): JSX.Element {
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const alerts = useLocalNotifications(settings);
+  useEffect(() => {
+    void readApi<AppSettings>("/settings")
+      .then(setSettings)
+      .catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const apply = (): void => {
+      document.documentElement.dataset.theme =
+        settings.theme === "system"
+          ? media.matches
+            ? "dark"
+            : "light"
+          : settings.theme;
+    };
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [settings.theme]);
   const [view, setView] = useState<DashboardView>("network");
   const [devices, setDevices] = useState<ApiDevice[]>([]);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
@@ -116,74 +152,82 @@ export default function Dashboard(): JSX.Element {
   const [query, setQuery] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
 
-  const loadDashboard = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setConnectionState("loading");
-    }
-    setNotice(null);
+  const loadDashboard = useCallback(
+    async (isRefresh = false, background = false) => {
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else if (!background) {
+        setConnectionState("loading");
+      }
+      if (!background) setNotice(null);
 
-    try {
-      const [devicesResult, statusResult] = await Promise.allSettled([
-        requestJson<DevicesResponse>("/devices", "devices"),
-        requestJson<AgentStatus>("/status", "status")
-      ]);
+      try {
+        if (isRefresh) await writeApi("/scan", {});
+        const [devicesResult, statusResult] = await Promise.allSettled([
+          requestJson<DevicesResponse>("/devices", "devices"),
+          requestJson<AgentStatus>("/status", "status")
+        ]);
 
-      if (devicesResult.status === "rejected") {
-        setConnectionState(
-          devicesResult.reason instanceof TypeError ? "offline" : "error"
-        );
-        setDevices([]);
-        setAgentStatus(null);
+        if (devicesResult.status === "rejected") {
+          setConnectionState(
+            devicesResult.reason instanceof TypeError ? "offline" : "error"
+          );
+          setDevices([]);
+          setAgentStatus(null);
+          setNotice({
+            message:
+              devicesResult.reason instanceof TypeError
+                ? "O agente local não respondeu. Verifique se ele está em execução."
+                : "O agente retornou um erro ao carregar os dispositivos.",
+            title:
+              devicesResult.reason instanceof TypeError
+                ? "Agente offline"
+                : "Falha na leitura",
+            tone: "error"
+          });
+          return;
+        }
+
+        setDevices(devicesResult.value.devices.map(normalizeDevice));
+        setConnectionState("ready");
+        if (devicesResult.value.warning)
+          setNotice({
+            title: "Varredura incompleta",
+            message: devicesResult.value.warning,
+            tone: "warning"
+          });
+
+        if (statusResult.status === "fulfilled") {
+          setAgentStatus(statusResult.value);
+        } else {
+          setAgentStatus(null);
+          setNotice({
+            message:
+              "Os dispositivos foram carregados, mas o resumo da interface de rede não está disponível.",
+            title: "Visão parcial",
+            tone: "warning"
+          });
+        }
+      } catch (error) {
+        setConnectionState(error instanceof TypeError ? "offline" : "error");
         setNotice({
-          message:
-            devicesResult.reason instanceof TypeError
-              ? "O agente local não respondeu. Verifique se ele está em execução."
-              : "O agente retornou um erro ao carregar os dispositivos.",
-          title:
-            devicesResult.reason instanceof TypeError
-              ? "Agente offline"
-              : "Falha na leitura",
+          message: "Não foi possível montar a visão da rede.",
+          title: "Dashboard indisponível",
           tone: "error"
         });
-        return;
+      } finally {
+        setIsRefreshing(false);
       }
-
-      setDevices(devicesResult.value.devices.map(normalizeDevice));
-      setConnectionState("ready");
-      if (devicesResult.value.warning)
-        setNotice({
-          title: "Varredura incompleta",
-          message: devicesResult.value.warning,
-          tone: "warning"
-        });
-
-      if (statusResult.status === "fulfilled") {
-        setAgentStatus(statusResult.value);
-      } else {
-        setAgentStatus(null);
-        setNotice({
-          message:
-            "Os dispositivos foram carregados, mas o resumo da interface de rede não está disponível.",
-          title: "Visão parcial",
-          tone: "warning"
-        });
-      }
-    } catch (error) {
-      setConnectionState(error instanceof TypeError ? "offline" : "error");
-      setNotice({
-        message: "Não foi possível montar a visão da rede.",
-        title: "Dashboard indisponível",
-        tone: "error"
-      });
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     void loadDashboard();
+    const timer = setInterval(() => {
+      void loadDashboard(false, true);
+    }, 60_000);
+    return () => clearInterval(timer);
   }, [loadDashboard]);
 
   const selectedDevice = devices.find(
@@ -220,7 +264,7 @@ export default function Dashboard(): JSX.Element {
       (device) => device.identity.status === "online"
     ).length;
     const unknown = devices.filter(
-      (device) => device.identity.status === "unknown"
+      (device) => device.identity.trustStatus === "unknown"
     ).length;
     const privateMacs = devices.filter(
       (device) => device.identity.privateMac
@@ -281,12 +325,23 @@ export default function Dashboard(): JSX.Element {
                   network: "Visão geral",
                   history: "Histórico",
                   router: "Roteador",
-                  trust: "Central de confiança"
+                  trust: "Central de confiança",
+                  settings: "Preferências",
+                  notifications: "Notificações"
                 }[view]
               }
             </span>
           </div>
           <div className="topbar-actions">
+            <button
+              className="icon-button"
+              title="Notificações"
+              aria-label={`Notificações: ${alerts.unread} não lidas`}
+              onClick={() => setView("notifications")}
+            >
+              <Bell size={17} />
+              <span className="notification-count">{alerts.unread || ""}</span>
+            </button>
             <span className={`agent-pill ${connectionState}`}>
               <span className="status-dot" />
               {connectionState === "offline"
@@ -324,6 +379,8 @@ export default function Dashboard(): JSX.Element {
               <option value="history">Histórico</option>
               <option value="trust">Central de confiança</option>
               <option value="router">Roteador</option>
+              <option value="notifications">Notificações</option>
+              <option value="settings">Preferências</option>
             </select>
           </label>
           {view === "network" || view === "trust" ? (
@@ -429,7 +486,11 @@ export default function Dashboard(): JSX.Element {
                 <div className="strip-action">
                   <span>
                     <small>CONTROLE DO ROTEADOR</small>
-                    <strong>Indisponível</strong>
+                    <strong>
+                      {agentStatus?.router.available
+                        ? "Configurado"
+                        : "Indisponível"}
+                    </strong>
                   </span>
                   <ShieldOff size={17} />
                 </div>
@@ -514,6 +575,13 @@ export default function Dashboard(): JSX.Element {
                 ) : null}
               </section>
             </>
+          ) : view === "settings" ? (
+            <SettingsPanel settings={settings} onChange={setSettings} />
+          ) : view === "notifications" ? (
+            <NotificationsPanel
+              alerts={alerts}
+              enabled={settings.notificationsEnabled}
+            />
           ) : view === "router" ? (
             <RouterPanel />
           ) : (
@@ -581,6 +649,18 @@ function Sidebar({
         />
       </nav>
       <div className="sidebar-bottom">
+        <NavItem
+          active={activeView === "notifications"}
+          icon={<Bell size={16} />}
+          label="Notificações"
+          onClick={() => onNavigate("notifications")}
+        />
+        <NavItem
+          active={activeView === "settings"}
+          icon={<Settings size={16} />}
+          label="Preferências"
+          onClick={() => onNavigate("settings")}
+        />
         <div className="scope-label">
           <span className="status-dot online" />
           SOMENTE LOCAL

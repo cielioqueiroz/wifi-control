@@ -2,6 +2,173 @@
 @tailwind components;
 @tailwind utilities;
 
+.notification-count {
+  font-size: 10px;
+  position: absolute;
+  top: -2px;
+  right: -2px;
+}
+.topbar-actions .icon-button {
+  position: relative;
+}
+.notification-list {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0;
+}
+.notification-list li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid #cfd8d2;
+  font-size: 13px;
+}
+.notification-list li > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notification-list time {
+  display: block;
+  color: #69796e;
+  margin-top: 6px;
+}
+.notification-list .read {
+  opacity: 0.65;
+}
+.notification-list .unread > svg {
+  color: #137f64;
+}
+.settings-fields {
+  border: 0;
+  padding: 0;
+  max-width: 660px;
+}
+.settings-fields legend {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 20px 0;
+}
+.settings-fields label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid #cfd8d2;
+  font-size: 14px;
+}
+.settings-fields select {
+  max-width: 200px;
+  padding: 8px;
+  border: 1px solid #b9c6bd;
+  border-radius: 4px;
+  background: white;
+}
+.settings-fields input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #158064;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --background: 150 8% 9%;
+  --foreground: 140 10% 90%;
+  --border: 150 6% 23%;
+}
+html[data-theme="dark"] body,
+html[data-theme="dark"] .dashboard-shell {
+  background: #171c19;
+  color: #e4eae6;
+}
+html[data-theme="dark"]
+  :is(
+    .topbar,
+    .metric-card,
+    .network-chip,
+    .device-row,
+    .device-table,
+    .device-table-head,
+    .device-drawer,
+    .history-panel,
+    .confirm-dialog,
+    .search-box,
+    .settings-fields select,
+    .mobile-navigation select
+  ) {
+  background: #232a26;
+  color: #e4eae6;
+  border-color: #414e45;
+}
+html[data-theme="dark"]
+  :is(
+    h1,
+    h2,
+    h3,
+    strong,
+    .brand-name,
+    .device-name-cell,
+    .detail-row,
+    .action-row,
+    .filter-button,
+    .icon-button,
+    .trust-button
+  ) {
+  color: #e4eae6;
+}
+html[data-theme="dark"]
+  :is(
+    .lede,
+    .eyebrow,
+    .breadcrumb,
+    .device-name-cell small,
+    .detail-row > span,
+    .metric-card p,
+    .drawer-label,
+    .drawer-id,
+    .operation-message
+  ) {
+  color: #adbbb1;
+}
+html[data-theme="dark"]
+  :is(
+    .overview-strip,
+    .filter-group,
+    .trust-button,
+    .action-row,
+    .evidence-row,
+    .router-lock,
+    .state-panel,
+    .agent-pill
+  ) {
+  background: #1d2420;
+  border-color: #414e45;
+}
+html[data-theme="dark"] :is(.filter-button.active, .trust-button.selected) {
+  background: #345044;
+}
+html[data-theme="dark"] :is(.device-row:hover, .icon-button:hover, input) {
+  background: #29382f;
+  color: #e4eae6;
+}
+html[data-theme="dark"] .primary-button {
+  color: #12271e;
+}
+@media (max-width: 520px) {
+  .settings-fields label {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .settings-fields select {
+    max-width: 100%;
+  }
+  .operational-panel .panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .mobile-navigation {
   display: none;
 }

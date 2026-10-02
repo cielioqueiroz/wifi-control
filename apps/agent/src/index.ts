@@ -30,7 +30,7 @@ app.server.listen(config.port, config.host, () =>
 );
 const interval = setInterval(() => {
   void app.scan();
-}, 60_000);
+}, 15_000);
 interval.unref();
 function shutdown(): void {
   clearInterval(interval);

@@ -36,6 +36,15 @@ const actionSchema = z
     confirmation: z.string().max(20)
   })
   .strict();
+const settingsSchema = z
+  .object({
+    notificationsEnabled: z.boolean(),
+    desktopNotifications: z.boolean(),
+    scanIntervalSeconds: z.number().int().min(30).max(900),
+    retentionDays: z.number().int().min(7).max(365),
+    theme: z.enum(["light", "dark", "system"])
+  })
+  .strict();
 const origins = new Set(["http://127.0.0.1:3001", "http://localhost:3001"]);
 
 export function createAgentServer(deps: Dependencies) {
@@ -52,7 +61,12 @@ export function createAgentServer(deps: Dependencies) {
 
   function scan(force = false): Promise<void> {
     if (pendingScan) return pendingScan;
-    if (!force && Date.now() - lastScanAt < 30_000) return Promise.resolve();
+    if (
+      !force &&
+      Date.now() - lastScanAt <
+        deps.store.getSettings().scanIntervalSeconds * 1000
+    )
+      return Promise.resolve();
     controller = new AbortController();
     scanError = null;
     pendingScan = deps
@@ -68,7 +82,7 @@ export function createAgentServer(deps: Dependencies) {
             .filter((item) => item.identity.status === "online")
             .map((item) => item.identity.id)
         );
-        deps.store.prune();
+        deps.store.prune(deps.store.getSettings().retentionDays);
         lastScanAt = Date.now();
       })
       .catch(() => {
@@ -124,6 +138,14 @@ export function createAgentServer(deps: Dependencies) {
     }
     const path = request.url?.split("?")[0];
     if (request.method === "GET") {
+      if (path === "/settings") {
+        send(response, 200, deps.store.getSettings());
+        return;
+      }
+      if (path === "/notifications") {
+        send(response, 200, { notifications: deps.store.getNotifications() });
+        return;
+      }
       if (path === "/health") {
         send(response, 200, { ok: true });
         return;
@@ -222,6 +244,29 @@ export function createAgentServer(deps: Dependencies) {
         ok: exists,
         devices: deps.store.getDevices()
       });
+      return;
+    }
+    if (path === "/settings") {
+      const result = settingsSchema.safeParse(body);
+      if (!result.success) {
+        send(response, 422, { error: "Preferências inválidas." });
+        return;
+      }
+      deps.store.updateSettings(result.data);
+      send(response, 200, result.data);
+      return;
+    }
+    if (path === "/notifications/read") {
+      const result = z
+        .object({ ids: z.array(z.string().uuid()).max(100) })
+        .strict()
+        .safeParse(body);
+      if (!result.success) {
+        send(response, 422, { error: "Notificações inválidas." });
+        return;
+      }
+      deps.store.markNotificationsRead(result.data.ids);
+      send(response, 200, { ok: true });
       return;
     }
     if (path === "/scan") {
