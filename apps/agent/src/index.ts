@@ -2,11 +2,14 @@ import { createServer } from "node:http";
 import type { ServerResponse } from "node:http";
 
 import { readLocalApiConfig } from "@wifi-control/config";
-import { UnsupportedNetworkAdapter } from "@wifi-control/network";
+import {
+  createPlatformNetworkAdapter,
+  discoverNetwork
+} from "@wifi-control/network";
 import { UnsupportedRouterAdapter } from "@wifi-control/router-adapters";
 
 const config = readLocalApiConfig();
-const networkAdapter = new UnsupportedNetworkAdapter();
+const networkAdapter = createPlatformNetworkAdapter();
 const routerAdapter = new UnsupportedRouterAdapter();
 
 const server = createServer((request, response) => {
@@ -24,6 +27,11 @@ const server = createServer((request, response) => {
 
   if (request.url === "/status") {
     void writeStatus(response);
+    return;
+  }
+
+  if (request.url === "/discover") {
+    void writeDiscovery(response);
     return;
   }
 
@@ -48,7 +56,18 @@ async function writeStatus(response: ServerResponse): Promise<void> {
     JSON.stringify({
       interfaces,
       router,
-      scanner: "not-configured"
+      scanner: {
+        endpoint: "/discover",
+        platform: process.platform,
+        ready: true
+      }
     })
   );
+}
+
+async function writeDiscovery(response: ServerResponse): Promise<void> {
+  const discovery = await discoverNetwork(networkAdapter);
+
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify(discovery));
 }

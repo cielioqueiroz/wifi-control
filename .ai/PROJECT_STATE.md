@@ -1,11 +1,11 @@
 # Project State
 
 Current phase:
-Phase 0 - Foundation complete; commit created locally.
+Phase 1 - Network Discovery complete.
 
 In progress:
 
-- Push commit to GitHub if local credentials allow it.
+- None.
 
 Completed:
 
@@ -16,10 +16,13 @@ Completed:
 - Validation: lint, typecheck, tests, and build.
 - Git repository initialized.
 - Foundation commit created.
+- Windows network adapter, subnet guards, neighbor parsing, bounded ICMP scan,
+  and local `/discover` endpoint implemented.
+- Phase 1 tests and monorepo validation passed.
 
 Next:
 
-- Start Phase 1 - Network Discovery.
+- Start Phase 2 - Device Identification.
 
 Known issues:
 
