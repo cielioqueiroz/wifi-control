@@ -30,6 +30,7 @@ type DeviceStatus = "online" | "offline" | "unknown";
 type TrustStatus = "unknown" | "trusted" | "blocked";
 type ConnectionState = "loading" | "ready" | "offline" | "error";
 type DeviceFilter = "all" | DeviceStatus;
+type DashboardView = "network" | "history";
 
 interface ApiDevice {
   identity: {
@@ -60,6 +61,26 @@ interface DevicesResponse {
   evidence: unknown[];
 }
 
+interface HistoryResponse {
+  devices: Array<{
+    displayName: string;
+    firstSeenAt: string;
+    id: string;
+    ip: string | null;
+    lastSeenAt: string;
+    mac: string | null;
+    status: DeviceStatus;
+  }>;
+  events: Array<{
+    deviceId: string | null;
+    deviceName: string | null;
+    id: string;
+    metadata: Record<string, unknown>;
+    occurredAt: string;
+    type: string;
+  }>;
+}
+
 interface AgentStatus {
   interfaces: Array<{
     address: string;
@@ -81,6 +102,7 @@ const AGENT_URL =
   process.env.NEXT_PUBLIC_LOCAL_AGENT_URL ?? "http://127.0.0.1:4317";
 
 export default function Dashboard(): JSX.Element {
+  const [view, setView] = useState<DashboardView>("network");
   const [devices, setDevices] = useState<ApiDevice[]>([]);
   const [agentStatus, setAgentStatus] = useState<AgentStatus | null>(null);
   const [connectionState, setConnectionState] =
@@ -244,7 +266,7 @@ export default function Dashboard(): JSX.Element {
 
   return (
     <main className="dashboard-shell">
-      <Sidebar />
+      <Sidebar activeView={view} onNavigate={setView} />
       <section className="dashboard-main">
         <header className="topbar">
           <div className="mobile-brand">
@@ -256,7 +278,7 @@ export default function Dashboard(): JSX.Element {
           <div className="breadcrumb">
             <span className="eyebrow">REDE LOCAL</span>
             <ChevronRight size={14} />
-            <span>Visão geral</span>
+            <span>{view === "network" ? "Visão geral" : "Histórico"}</span>
           </div>
           <div className="topbar-actions">
             <span className={`agent-pill ${connectionState}`}>
@@ -265,196 +287,210 @@ export default function Dashboard(): JSX.Element {
                 ? "Agente offline"
                 : "Agente local"}
             </span>
-            <button
-              aria-label="Atualizar descoberta"
-              className={`icon-button ${isRefreshing ? "is-spinning" : ""}`}
-              disabled={isRefreshing || connectionState === "loading"}
-              onClick={() => void loadDashboard(true)}
-              title="Atualizar descoberta"
-              type="button"
-            >
-              <RefreshCw size={16} />
-            </button>
+            {view === "network" ? (
+              <button
+                aria-label="Atualizar descoberta"
+                className={`icon-button ${isRefreshing ? "is-spinning" : ""}`}
+                disabled={isRefreshing || connectionState === "loading"}
+                onClick={() => void loadDashboard(true)}
+                title="Atualizar descoberta"
+                type="button"
+              >
+                <RefreshCw size={16} />
+              </button>
+            ) : null}
             <span className="avatar">CQ</span>
           </div>
         </header>
 
         <div className="content-wrap">
-          <section className="page-heading reveal reveal-one">
-            <div>
-              <p className="eyebrow">REDE / ESCRITÓRIO</p>
-              <h1>Visão geral da rede</h1>
-              <p className="lede">
-                Um retrato local, legível e sem suposições sobre quem está na
-                sua rede.
-              </p>
-            </div>
-            <div className="network-chip">
-              <span className="signal-icon">
-                <Network size={17} />
-              </span>
-              <span>
-                <small>SEGMENTO ATIVO</small>
-                <strong>{getNetworkLabel(agentStatus)}</strong>
-              </span>
-              <span className="chip-state">LOCAL</span>
-            </div>
-          </section>
-
-          {notice ? (
-            <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
-          ) : null}
-
-          <section
-            aria-label="Resumo da rede"
-            className="metrics-grid reveal reveal-two"
-          >
-            <MetricCard
-              detail="última varredura"
-              icon={<MonitorSmartphone size={17} />}
-              label="Dispositivos descobertos"
-              value={metrics.total}
-            />
-            <MetricCard
-              detail="respondendo"
-              icon={<Sparkles size={17} />}
-              label="Online agora"
-              tone="mint"
-              value={metrics.online}
-            />
-            <MetricCard
-              detail="identidade desconhecida"
-              icon={<CircleHelp size={17} />}
-              label="Requer revisão"
-              tone="amber"
-              value={metrics.unknown}
-            />
-            <MetricCard
-              detail="fabricante oculto"
-              icon={<ShieldAlert size={17} />}
-              label="MACs privados"
-              tone="coral"
-              value={metrics.privateMacs}
-            />
-          </section>
-
-          <section className="overview-strip reveal reveal-three">
-            <div className="strip-item">
-              <span className="strip-icon">
-                <Server size={16} />
-              </span>
-              <span>
-                <small>GATEWAY</small>
-                <strong>
-                  {agentStatus?.interfaces[0]?.gateway ?? "Não detectado"}
-                </strong>
-              </span>
-            </div>
-            <div className="strip-item">
-              <span className="strip-icon">
-                <Wifi size={16} />
-              </span>
-              <span>
-                <small>INTERFACE</small>
-                <strong>
-                  {agentStatus?.interfaces[0]?.name ?? "Aguardando agente"}
-                </strong>
-              </span>
-            </div>
-            <div className="strip-item">
-              <span className="strip-icon">
-                <Clock3 size={16} />
-              </span>
-              <span>
-                <small>ÚLTIMA OBSERVAÇÃO</small>
-                <strong>
-                  {connectionState === "ready"
-                    ? "Agora mesmo"
-                    : "Aguardando varredura"}
-                </strong>
-              </span>
-            </div>
-            <div className="strip-action">
-              <span>
-                <small>CONTROLE DO ROTEADOR</small>
-                <strong>Indisponível</strong>
-              </span>
-              <ShieldOff size={17} />
-            </div>
-          </section>
-
-          <section className="devices-section reveal reveal-four">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">OBSERVAÇÕES</p>
-                <h2>Dispositivos na sua rede</h2>
-              </div>
-              <div className="table-tools">
-                <label className="search-box">
-                  <Search size={16} />
-                  <span className="sr-only">Buscar dispositivos</span>
-                  <input
-                    aria-label="Buscar dispositivos"
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Buscar dispositivo, IP ou MAC"
-                    value={query}
-                  />
-                </label>
-                <span className="tool-divider" />
-                <SlidersHorizontal size={16} />
-                <div
-                  aria-label="Filtrar dispositivos"
-                  className="filter-group"
-                  role="group"
-                >
-                  {(
-                    ["all", "online", "unknown", "offline"] as DeviceFilter[]
-                  ).map((option) => (
-                    <button
-                      className={
-                        filter === option
-                          ? "filter-button active"
-                          : "filter-button"
-                      }
-                      key={option}
-                      onClick={() => setFilter(option)}
-                      type="button"
-                    >
-                      {getFilterLabel(option)}
-                    </button>
-                  ))}
+          {view === "network" ? (
+            <>
+              <section className="page-heading reveal reveal-one">
+                <div>
+                  <p className="eyebrow">REDE / ESCRITÓRIO</p>
+                  <h1>Visão geral da rede</h1>
+                  <p className="lede">
+                    Um retrato local, legível e sem suposições sobre quem está
+                    na sua rede.
+                  </p>
                 </div>
-              </div>
-            </div>
+                <div className="network-chip">
+                  <span className="signal-icon">
+                    <Network size={17} />
+                  </span>
+                  <span>
+                    <small>SEGMENTO ATIVO</small>
+                    <strong>{getNetworkLabel(agentStatus)}</strong>
+                  </span>
+                  <span className="chip-state">LOCAL</span>
+                </div>
+              </section>
 
-            {connectionState === "loading" ? <LoadingTable /> : null}
-            {connectionState !== "loading" &&
-            connectionState === "ready" &&
-            devices.length === 0 ? (
-              <EmptyState onRefresh={() => void loadDashboard(true)} />
-            ) : null}
-            {connectionState !== "loading" && connectionState !== "ready" ? (
-              <ProblemState
-                connectionState={connectionState}
-                onRefresh={() => void loadDashboard(true)}
-              />
-            ) : null}
-            {connectionState === "ready" && devices.length > 0 ? (
-              filteredDevices.length > 0 ? (
-                <DeviceTable
-                  devices={filteredDevices}
-                  onSelect={setSelectedId}
+              {notice ? (
+                <NoticeBanner notice={notice} onClose={() => setNotice(null)} />
+              ) : null}
+
+              <section
+                aria-label="Resumo da rede"
+                className="metrics-grid reveal reveal-two"
+              >
+                <MetricCard
+                  detail="última varredura"
+                  icon={<MonitorSmartphone size={17} />}
+                  label="Dispositivos descobertos"
+                  value={metrics.total}
                 />
-              ) : (
-                <FilteredEmptyState
-                  onClear={() => {
-                    setFilter("all");
-                    setQuery("");
-                  }}
+                <MetricCard
+                  detail="respondendo"
+                  icon={<Sparkles size={17} />}
+                  label="Online agora"
+                  tone="mint"
+                  value={metrics.online}
                 />
-              )
-            ) : null}
-          </section>
+                <MetricCard
+                  detail="identidade desconhecida"
+                  icon={<CircleHelp size={17} />}
+                  label="Requer revisão"
+                  tone="amber"
+                  value={metrics.unknown}
+                />
+                <MetricCard
+                  detail="fabricante oculto"
+                  icon={<ShieldAlert size={17} />}
+                  label="MACs privados"
+                  tone="coral"
+                  value={metrics.privateMacs}
+                />
+              </section>
+
+              <section className="overview-strip reveal reveal-three">
+                <div className="strip-item">
+                  <span className="strip-icon">
+                    <Server size={16} />
+                  </span>
+                  <span>
+                    <small>GATEWAY</small>
+                    <strong>
+                      {agentStatus?.interfaces[0]?.gateway ?? "Não detectado"}
+                    </strong>
+                  </span>
+                </div>
+                <div className="strip-item">
+                  <span className="strip-icon">
+                    <Wifi size={16} />
+                  </span>
+                  <span>
+                    <small>INTERFACE</small>
+                    <strong>
+                      {agentStatus?.interfaces[0]?.name ?? "Aguardando agente"}
+                    </strong>
+                  </span>
+                </div>
+                <div className="strip-item">
+                  <span className="strip-icon">
+                    <Clock3 size={16} />
+                  </span>
+                  <span>
+                    <small>ÚLTIMA OBSERVAÇÃO</small>
+                    <strong>
+                      {connectionState === "ready"
+                        ? "Agora mesmo"
+                        : "Aguardando varredura"}
+                    </strong>
+                  </span>
+                </div>
+                <div className="strip-action">
+                  <span>
+                    <small>CONTROLE DO ROTEADOR</small>
+                    <strong>Indisponível</strong>
+                  </span>
+                  <ShieldOff size={17} />
+                </div>
+              </section>
+
+              <section className="devices-section reveal reveal-four">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">OBSERVAÇÕES</p>
+                    <h2>Dispositivos na sua rede</h2>
+                  </div>
+                  <div className="table-tools">
+                    <label className="search-box">
+                      <Search size={16} />
+                      <span className="sr-only">Buscar dispositivos</span>
+                      <input
+                        aria-label="Buscar dispositivos"
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Buscar dispositivo, IP ou MAC"
+                        value={query}
+                      />
+                    </label>
+                    <span className="tool-divider" />
+                    <SlidersHorizontal size={16} />
+                    <div
+                      aria-label="Filtrar dispositivos"
+                      className="filter-group"
+                      role="group"
+                    >
+                      {(
+                        [
+                          "all",
+                          "online",
+                          "unknown",
+                          "offline"
+                        ] as DeviceFilter[]
+                      ).map((option) => (
+                        <button
+                          className={
+                            filter === option
+                              ? "filter-button active"
+                              : "filter-button"
+                          }
+                          key={option}
+                          onClick={() => setFilter(option)}
+                          type="button"
+                        >
+                          {getFilterLabel(option)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {connectionState === "loading" ? <LoadingTable /> : null}
+                {connectionState !== "loading" &&
+                connectionState === "ready" &&
+                devices.length === 0 ? (
+                  <EmptyState onRefresh={() => void loadDashboard(true)} />
+                ) : null}
+                {connectionState !== "loading" &&
+                connectionState !== "ready" ? (
+                  <ProblemState
+                    connectionState={connectionState}
+                    onRefresh={() => void loadDashboard(true)}
+                  />
+                ) : null}
+                {connectionState === "ready" && devices.length > 0 ? (
+                  filteredDevices.length > 0 ? (
+                    <DeviceTable
+                      devices={filteredDevices}
+                      onSelect={setSelectedId}
+                    />
+                  ) : (
+                    <FilteredEmptyState
+                      onClear={() => {
+                        setFilter("all");
+                        setQuery("");
+                      }}
+                    />
+                  )
+                ) : null}
+              </section>
+            </>
+          ) : (
+            <HistoryPanel />
+          )}
         </div>
       </section>
 
@@ -470,7 +506,13 @@ export default function Dashboard(): JSX.Element {
   );
 }
 
-function Sidebar(): JSX.Element {
+function Sidebar({
+  activeView,
+  onNavigate
+}: Readonly<{
+  activeView: DashboardView;
+  onNavigate: (view: DashboardView) => void;
+}>): JSX.Element {
   return (
     <aside className="sidebar">
       <div className="brand-block">
@@ -484,9 +526,19 @@ function Sidebar(): JSX.Element {
       </div>
       <div className="sidebar-rule" />
       <nav aria-label="Navegação principal" className="side-nav">
-        <NavItem active icon={<Network size={16} />} label="Rede" />
+        <NavItem
+          active={activeView === "network"}
+          icon={<Network size={16} />}
+          label="Rede"
+          onClick={() => onNavigate("network")}
+        />
         <NavItem icon={<MonitorSmartphone size={16} />} label="Dispositivos" />
-        <NavItem icon={<History size={16} />} label="Histórico" />
+        <NavItem
+          active={activeView === "history"}
+          icon={<History size={16} />}
+          label="Histórico"
+          onClick={() => onNavigate("history")}
+        />
         <NavItem
           icon={<ShieldCheck size={16} />}
           label="Central de confiança"
@@ -507,16 +559,19 @@ function Sidebar(): JSX.Element {
 function NavItem({
   active,
   icon,
-  label
+  label,
+  onClick
 }: Readonly<{
   active?: boolean;
   icon: JSX.Element;
   label: string;
+  onClick?: () => void;
 }>): JSX.Element {
   return (
     <button
       className={`nav-item ${active ? "active" : ""}`}
-      disabled={!active}
+      disabled={!onClick}
+      onClick={onClick}
       type="button"
     >
       {icon}
@@ -580,6 +635,220 @@ function NoticeBanner({
       </button>
     </div>
   );
+}
+
+function HistoryPanel(): JSX.Element {
+  const [snapshot, setSnapshot] = useState<HistoryResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadHistory = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+    setHasError(false);
+
+    try {
+      setSnapshot(await requestJson<HistoryResponse>("/history", "history"));
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  return (
+    <>
+      <section className="page-heading history-heading reveal reveal-one">
+        <div>
+          <p className="eyebrow">REDE / HISTÓRICO</p>
+          <h1>Atividade da rede</h1>
+          <p className="lede">
+            Presença observada ao longo do tempo, mantida localmente nesta
+            máquina.
+          </p>
+        </div>
+        <button
+          className={`primary-button history-refresh ${
+            isRefreshing ? "is-spinning" : ""
+          }`}
+          disabled={isLoading || isRefreshing}
+          onClick={() => void loadHistory(true)}
+          type="button"
+        >
+          <RefreshCw size={15} />
+          Atualizar histórico
+        </button>
+      </section>
+
+      {isLoading ? <HistoryLoading /> : null}
+      {!isLoading && hasError ? <HistoryError onRefresh={loadHistory} /> : null}
+      {!isLoading && !hasError && snapshot ? (
+        snapshot.events.length > 0 ? (
+          <div className="history-layout reveal reveal-two">
+            <section className="history-panel">
+              <div className="history-panel-heading">
+                <div>
+                  <p className="eyebrow">LINHA DO TEMPO</p>
+                  <h2>Eventos recentes</h2>
+                </div>
+                <span className="history-count">
+                  {snapshot.events.length} eventos
+                </span>
+              </div>
+              <div className="history-list">
+                {snapshot.events.map((event) => (
+                  <article className="history-event" key={event.id}>
+                    <span className="history-event-icon">
+                      {event.type === "status_changed" ? (
+                        <Clock3 size={16} />
+                      ) : (
+                        <Network size={16} />
+                      )}
+                    </span>
+                    <div>
+                      <strong>{getHistoryEventTitle(event)}</strong>
+                      <p>{getHistoryEventDescription(event)}</p>
+                    </div>
+                    <time dateTime={event.occurredAt}>
+                      {formatHistoryDate(event.occurredAt)}
+                    </time>
+                  </article>
+                ))}
+              </div>
+            </section>
+            <section className="history-panel">
+              <div className="history-panel-heading">
+                <div>
+                  <p className="eyebrow">DISPOSITIVOS</p>
+                  <h2>Presença registrada</h2>
+                </div>
+                <span className="history-count">
+                  {snapshot.devices.length} dispositivos
+                </span>
+              </div>
+              <div className="history-device-list">
+                {snapshot.devices.map((device) => (
+                  <div className="history-device" key={device.id}>
+                    <span className="device-avatar">
+                      <Laptop size={16} />
+                    </span>
+                    <span>
+                      <strong>{device.displayName}</strong>
+                      <small>
+                        {device.ip ?? "Sem IP"} · desde{" "}
+                        {formatHistoryDate(device.firstSeenAt)}
+                      </small>
+                    </span>
+                    <StatusBadge status={device.status} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        ) : (
+          <HistoryEmpty />
+        )
+      ) : null}
+    </>
+  );
+}
+
+function HistoryLoading(): JSX.Element {
+  return (
+    <div className="history-layout">
+      <div className="history-panel history-loading-panel" />
+      <div className="history-panel history-loading-panel" />
+    </div>
+  );
+}
+
+function HistoryEmpty(): JSX.Element {
+  return (
+    <div className="state-panel">
+      <span className="state-icon">
+        <History size={21} />
+      </span>
+      <h3>Ainda não há atividade registrada</h3>
+      <p>
+        Execute uma descoberta na visão da rede para começar a registrar a
+        presença dos dispositivos.
+      </p>
+    </div>
+  );
+}
+
+function HistoryError({
+  onRefresh
+}: Readonly<{
+  onRefresh: (isRefresh?: boolean) => Promise<void>;
+}>): JSX.Element {
+  return (
+    <div className="state-panel offline-state">
+      <span className="state-icon">
+        <CircleAlert size={21} />
+      </span>
+      <h3>Não foi possível carregar o histórico</h3>
+      <p>O agente local não respondeu ao consultar a atividade registrada.</p>
+      <button
+        className="primary-button"
+        onClick={() => void onRefresh(true)}
+        type="button"
+      >
+        <RefreshCw size={15} />
+        Tentar novamente
+      </button>
+    </div>
+  );
+}
+
+function getHistoryEventTitle(
+  event: HistoryResponse["events"][number]
+): string {
+  return event.type === "status_changed"
+    ? "Mudança de status"
+    : "Dispositivo descoberto";
+}
+
+function getHistoryEventDescription(
+  event: HistoryResponse["events"][number]
+): string {
+  const name = event.deviceName ?? "Dispositivo não identificado";
+
+  if (event.type !== "status_changed") {
+    return `${name} foi observado na rede.`;
+  }
+
+  const from = getStatusLabel(event.metadata.from);
+  const to = getStatusLabel(event.metadata.to);
+  return `${name} mudou de ${from} para ${to}.`;
+}
+
+function getStatusLabel(value: unknown): string {
+  const labels: Record<DeviceStatus, string> = {
+    offline: "offline",
+    online: "online",
+    unknown: "desconhecido"
+  };
+
+  return typeof value === "string" && value in labels
+    ? labels[value as DeviceStatus]
+    : labels.unknown;
+}
+
+function formatHistoryDate(value: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(value));
 }
 
 function DeviceTable({

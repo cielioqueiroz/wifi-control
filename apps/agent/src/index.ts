@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import type { ServerResponse } from "node:http";
 
 import { readLocalApiConfig } from "@wifi-control/config";
+import { HistoryStore } from "@wifi-control/database";
 import { identifyDevices } from "@wifi-control/identification";
 import {
   createPlatformNetworkAdapter,
@@ -12,8 +13,11 @@ import { UnsupportedRouterAdapter } from "@wifi-control/router-adapters";
 const config = readLocalApiConfig();
 const networkAdapter = createPlatformNetworkAdapter();
 const routerAdapter = new UnsupportedRouterAdapter();
+const historyStore = new HistoryStore();
 const allowedOrigins = new Set([
   "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+  "http://localhost:3001",
   "http://localhost:3000"
 ]);
 
@@ -46,6 +50,11 @@ const server = createServer((request, response) => {
 
   if (request.url === "/devices") {
     void writeDevices(response, request);
+    return;
+  }
+
+  if (request.url === "/history") {
+    writeJson(response, request, 200, historyStore.getSnapshot());
     return;
   }
 
@@ -93,6 +102,8 @@ async function writeDevices(
 ): Promise<void> {
   const discovery = await discoverNetwork(networkAdapter);
   const identification = identifyDevices(discovery);
+
+  historyStore.recordDevices(identification.devices);
 
   writeJson(response, request, 200, identification);
 }

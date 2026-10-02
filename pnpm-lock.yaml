@@ -44,6 +44,9 @@ importers:
       '@wifi-control/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@wifi-control/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@wifi-control/identification':
         specifier: workspace:*
         version: link:../../packages/identification

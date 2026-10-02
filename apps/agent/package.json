@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@wifi-control/config": "workspace:*",
+    "@wifi-control/database": "workspace:*",
     "@wifi-control/identification": "workspace:*",
     "@wifi-control/network": "workspace:*",
     "@wifi-control/router-adapters": "workspace:*",

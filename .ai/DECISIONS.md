@@ -13,3 +13,6 @@
 - Keep the Dashboard local-first: it reads the agent over loopback-only CORS,
   makes session-only rename/trust changes until persistence is implemented, and
   keeps router blocking visibly unavailable.
+- Persist network history in a local SQLite file through the native Node
+  SQLite API. Discovery writes device snapshots, evidence, and activity events
+  in one transaction; `/history` exposes only the local timeline.

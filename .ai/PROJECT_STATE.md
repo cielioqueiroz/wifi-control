@@ -1,7 +1,7 @@
 # Project State
 
 Current phase:
-Phase 3 - Dashboard complete.
+Phase 4 - History complete.
 
 In progress:
 
@@ -26,10 +26,16 @@ Completed:
   details drawer, local rename/trust actions, and explicit connection states.
 - Local CORS, interface timeout handling, and reserved neighbor filtering
   validated against the Windows runtime.
+- Local SQLite history store persists device first/last seen data, discovery
+  evidence, and status transitions.
+- Dashboard history view exposes a Portuguese activity timeline and device
+  presence summary through the local `/history` endpoint.
+- Phase 4 tests, full QA, and a real Windows discovery/history round trip
+  passed.
 
 Next:
 
-- Start Phase 4 - History.
+- Start Phase 5 - Router control.
 
 Known issues:
 

@@ -17,6 +17,12 @@ UI:
 - `apps/web/`
 - `packages/ui/`
 
+History:
+
+- `specs/005-history/`
+- `packages/database/`
+- `apps/agent/`
+
 Database:
 
 - `docs/DATA_MODEL.md`
