@@ -27,6 +27,10 @@ Never save router passwords in SQLite, commit them, log them, or return them to
 the frontend. Future Windows storage should use Credential Manager, DPAPI, or an
 equivalent secure store.
 
+The router configuration may contain only a non-secret credential reference,
+such as a Windows Credential Manager target name. It must never contain the
+router password itself.
+
 ## Router Control
 
 Future blocking must protect the gateway, current host, broadcast addresses,

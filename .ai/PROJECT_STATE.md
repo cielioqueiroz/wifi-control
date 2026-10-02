@@ -34,6 +34,8 @@ Completed:
   passed.
 - Router action safety policy validates confirmation and protected targets
   without performing router I/O; the unsupported adapter remains the default.
+- Local router configuration now accepts only adapter, endpoint, gateway, and a
+  non-secret credential reference; passwords are not read by the application.
 
 Next:
 
