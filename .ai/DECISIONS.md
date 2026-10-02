@@ -16,3 +16,6 @@
 - Persist network history in a local SQLite file through the native Node
   SQLite API. Discovery writes device snapshots, evidence, and activity events
   in one transaction; `/history` exposes only the local timeline.
+- Keep router actions behind an explicit local activation step. The default
+  adapter remains unsupported, and safety validation rejects invalid, protected,
+  or unconfirmed targets before any future adapter can receive an action.

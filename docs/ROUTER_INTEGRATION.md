@@ -8,9 +8,11 @@ Current observed router:
 - Model: WiFi AX2
 - Gateway: `192.168.3.1`
 
-The owner is waiting for legitimate administrative credentials from the
-provider. Until then, do not implement Huawei AX2 login, reverse engineering,
-blocking, deauthentication, ARP spoofing, packet injection, or any workaround.
+Legitimate administrative credentials are available to the owner, but they must
+be configured locally before any action can be enabled. Do not paste them into
+chat or commit them. Until a documented administrative integration is enabled,
+do not implement Huawei AX2 login by reverse engineering, deauthentication, ARP
+spoofing, packet injection, or any workaround.
 
 ## Adapter Contract
 
@@ -23,3 +25,12 @@ Router integrations must implement:
 - `listBlockedDevices`
 
 Phase 0 includes `UnsupportedRouterAdapter` and `MockRouterAdapter` only.
+
+## Phase 5 safety boundary
+
+The adapter package now includes a pure validation policy for future actions.
+It requires an action-specific confirmation, a valid unicast MAC, a valid IPv4
+address, and rejects the gateway, local host, and broadcast addresses. It does
+not perform router I/O. The default adapter continues to return
+`unsupported`, so no network device can be blocked until the owner explicitly
+activates a configured adapter.

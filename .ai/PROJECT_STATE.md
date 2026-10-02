@@ -1,7 +1,7 @@
 # Project State
 
 Current phase:
-Phase 4 - History complete.
+Phase 5 - Router control safety foundation.
 
 In progress:
 
@@ -32,10 +32,13 @@ Completed:
   presence summary through the local `/history` endpoint.
 - Phase 4 tests, full QA, and a real Windows discovery/history round trip
   passed.
+- Router action safety policy validates confirmation and protected targets
+  without performing router I/O; the unsupported adapter remains the default.
 
 Next:
 
-- Start Phase 5 - Router control.
+- Configure credentials locally and explicitly activate a documented router
+  adapter before implementing block/unblock I/O.
 
 Known issues:
 

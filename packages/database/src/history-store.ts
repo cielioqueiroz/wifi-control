@@ -55,6 +55,13 @@ export interface HistorySnapshot {
   events: HistoryEvent[];
 }
 
+export interface RouterAuditInput {
+  action: "block" | "unblock";
+  deviceId: string | null;
+  result: Record<string, unknown>;
+  status: "requested" | "succeeded" | "failed";
+}
+
 interface StoredDeviceRow {
   display_name: string;
   first_seen_at: number;
@@ -150,6 +157,23 @@ export class HistoryStore {
 
   close(): void {
     this.database.close();
+  }
+
+  recordRouterAction(input: RouterAuditInput): void {
+    this.database
+      .prepare(
+        `INSERT INTO router_actions
+           (id, device_id, action, status, requested_at, result_json)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        randomUUID(),
+        input.deviceId,
+        input.action,
+        input.status,
+        Date.now(),
+        JSON.stringify(input.result)
+      );
   }
 
   private recordDevice(device: HistoryDeviceInput): void {
