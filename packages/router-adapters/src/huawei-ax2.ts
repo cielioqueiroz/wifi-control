@@ -1,4 +1,5 @@
 import { createHash, createHmac, pbkdf2Sync, randomBytes } from "node:crypto";
+import { isIP } from "node:net";
 
 import type { RouterActionResult, RouterDevice, RouterInfo } from "./index.js";
 
@@ -59,6 +60,16 @@ export class HuaweiAx2Adapter {
   constructor(options: HuaweiAx2AdapterOptions) {
     const url = new URL(options.baseUrl);
     const gateway = options.gatewayIp ?? "192.168.3.1";
+    const [first, second] = gateway.split(".").map(Number);
+    if (
+      isIP(gateway) !== 4 ||
+      !(
+        first === 10 ||
+        (first === 192 && second === 168) ||
+        (first === 172 && second !== undefined && second >= 16 && second <= 31)
+      )
+    )
+      throw new Error("O gateway deve ser um endereço IPv4 privado.");
     if (
       !["http:", "https:"].includes(url.protocol) ||
       url.hostname !== gateway ||

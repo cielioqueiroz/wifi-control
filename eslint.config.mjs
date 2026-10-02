@@ -10,6 +10,8 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/playwright-report/**",
       "**/test-results/**",
+      "release/**",
+      "**/out/**",
       "pnpm-lock.yaml"
     ]
   },
@@ -53,5 +55,12 @@ export default tseslint.config(
       "@typescript-eslint/triple-slash-reference": "off"
     }
   },
-  eslintConfigPrettier
+  eslintConfigPrettier,
+  {
+    files: ["scripts/*.mjs"],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: { process: "readonly", console: "readonly", URL: "readonly" }
+    }
+  }
 );

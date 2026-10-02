@@ -21,3 +21,9 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.tsbuildinfo
+release/
+**/out/
+data/
+*.credential.xml
+*.sqlite-wal
+*.sqlite-shm

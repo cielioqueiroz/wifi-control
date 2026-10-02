@@ -5,6 +5,26 @@ import { describe, expect, it } from "vitest";
 import { HuaweiAx2Adapter } from "./huawei-ax2.js";
 
 describe("HuaweiAx2Adapter", () => {
+  it("rejects public and non-IPv4 gateway overrides", () => {
+    for (const gatewayIp of [
+      "8.8.8.8",
+      "127.0.0.1",
+      "169.254.1.1",
+      "example.com"
+    ]) {
+      expect(
+        () =>
+          new HuaweiAx2Adapter({
+            baseUrl: `http://${gatewayIp}`,
+            gatewayIp,
+            credentialProvider: {
+              getCredentials: () =>
+                Promise.resolve({ username: "admin", password: "test" })
+            }
+          })
+      ).toThrow();
+    }
+  });
   it("rejects endpoints that could receive credentials outside the gateway", () => {
     for (const baseUrl of [
       "http://example.com",

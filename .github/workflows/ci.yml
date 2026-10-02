@@ -39,3 +39,19 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser flows
+        run: pnpm test:e2e
+
+      - name: Build Windows portable files
+        run: node scripts/package-windows.mjs
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: wifi-control-windows
+          path: release/wifi-control-windows
+          if-no-files-found: error

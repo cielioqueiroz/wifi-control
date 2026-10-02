@@ -333,6 +333,24 @@ export default function Dashboard(): JSX.Element {
             </span>
           </div>
           <div className="topbar-actions">
+            {isRefreshing || connectionState === "loading" ? (
+              <button
+                className="icon-button"
+                title="Cancelar varredura"
+                aria-label="Cancelar varredura"
+                onClick={() => {
+                  void writeApi("/scan/cancel", {}).catch(() =>
+                    setNotice({
+                      tone: "error",
+                      title: "Falha ao cancelar",
+                      message: "O agente local não respondeu."
+                    })
+                  );
+                }}
+              >
+                <X size={17} />
+              </button>
+            ) : null}
             <button
               className="icon-button"
               title="Notificações"

@@ -24,8 +24,20 @@ Observations, first/last seen, online/offline transitions, and timeline.
 
 ## Phase 5 - Router Integration
 
-Wait for legitimate Huawei WiFi AX2 access, then document and implement safely.
+Adapter, protected local API, DPAPI setup, confirmation UI and audit implemented.
+Hardware acceptance still requires local credential setup and a selected target.
 
-## Later
+## Phase 6 - Local notifications
 
-Notifications, optional cloud sync, and desktop packaging.
+Implemented: persistent notifications and read state, optional system alerts,
+monitoring preferences and light/dark themes.
+
+## Windows distribution
+
+Portable static dashboard and bundled agent with start/stop scripts. Node 24
+is required. Tauri was evaluated and deferred in ADR 0006.
+
+## Optional cloud sync
+
+Not activated. No cloud resources, accounts or telemetry are required for the
+local product. Scope and destination must be chosen before exporting LAN data.

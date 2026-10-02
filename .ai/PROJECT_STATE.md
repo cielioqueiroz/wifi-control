@@ -1,62 +1,54 @@
 # Project State
 
-Current phase:
-Phase 5 - Router control adapter and guarded actions.
+## Estado atual
+Produto local implementado e pacote portatil Windows validado em 2026-10-02.
+Interface em portugues brasileiro: http://127.0.0.1:3001.
+API somente loopback em 4317. Nao usar a porta 3000: pertence a outro projeto.
 
-In progress:
+## Concluido
+- Descoberta Windows com varredura limitada, vizinhos, DNS local, mDNS e SSDP.
+- Correlacao de evidencias, protecao de MAC privado e estados de presenca.
+- SQLite com migracoes versionadas, historico, nomes e confianca persistentes.
+- Dashboard responsivo, detalhes, filtros, cancelamento de varredura e historico.
+- API com validacao de Host/Origin, token de sessao e corpos validados.
+- Adaptador Huawei AX2 com confirmacao, protecao de alvos e auditoria.
+- Configuracao local de credencial DPAPI; nenhuma senha no repositorio.
+- Notificacoes locais, leitura persistida, preferencias e temas.
+- Exportacao estatica, agente empacotado, scripts start/stop e guia Windows.
+- CI com testes de navegador e artefato portatil.
 
-- None.
+## Verificacao
+- Lint, typecheck, testes e build passaram.
+- Tres testes Chromium passaram: persistencia/confirmacao, responsividade e temas.
+- Pacote iniciou e reiniciou em 3001/4317; recusou portas ocupadas.
+- Porta 3000 preservada.
+- Descoberta real retornou cinco dispositivos e nove eventos.
+- Banco anterior preservado em apps/agent/data; copia inicial em LocalAppData/WiFiControl.
 
-Completed:
+## Pendencias e limites
+- Credencial do roteador ainda nao configurada no agente; login do navegador nao
+  e compartilhado. Adaptador real permanece desativado neste runtime.
+- Aceitacao no hardware: configurar credencial local, testar leitura e escolher
+  explicitamente um alvo nao critico para bloqueio/desbloqueio.
+- Cloud opcional nao ativada; Tauri e instalador nativo adiados no ADR 0006.
+- Notificacoes do sistema exigem permissao e navegador aberto.
+- CI remoto ainda nao verificado.
+- Aviso nao bloqueante do plugin ESLint Next.js no build.
 
-- Initial monorepo structure.
-- Base app/package scaffolding.
-- Initial docs, ADRs, specs, and capabilities.
-- Dependency installation.
-- Validation: lint, typecheck, tests, and build.
-- Git repository initialized.
-- Foundation commit created.
-- Windows network adapter, subnet guards, neighbor parsing, bounded ICMP scan,
-  and local `/discover` endpoint implemented.
-- Phase 1 tests and monorepo validation passed.
-- Evidence correlation package, private-MAC protection, manual aliases, and
-  local `/devices` endpoint implemented.
-- Phase 2 tests and monorepo validation passed.
-- Operational Dashboard with real agent data, responsive table, filters,
-  details drawer, local rename/trust actions, and explicit connection states.
-- Local CORS, interface timeout handling, and reserved neighbor filtering
-  validated against the Windows runtime.
-- Local SQLite history store persists device first/last seen data, discovery
-  evidence, and status transitions.
-- Dashboard history view exposes a Portuguese activity timeline and device
-  presence summary through the local `/history` endpoint.
-- Phase 4 tests, full QA, and a real Windows discovery/history round trip
-  passed.
-- Router action safety policy validates confirmation and protected targets.
-- Huawei AX2 adapter implements the official SCRAM login flow, device listing,
-  dual-band MAC filter updates, and guarded block/unblock routes.
-- Local router configuration now accepts only adapter, endpoint, gateway, and a
-  non-secret credential reference. Runtime credentials are accepted only from
-  process environment values and are never stored or returned.
+## Arquivos-chave
+- docs/WINDOWS.md
+- docs/ROUTER_INTEGRATION.md
+- docs/adr/0006-native-sqlite-and-portable-windows.md
+- apps/agent/src/server.ts
+- apps/agent/src/router.ts
+- specs/008-windows-release/
 
-Next:
-
-- Configure the local runtime credentials and perform a harmless read-only AX2
-  round trip before using an explicitly confirmed block/unblock action.
-
-Known issues:
-
-- Next.js build emits a non-blocking warning that the Next ESLint plugin is not
-  detected by the flat ESLint config.
-
-Relevant files:
-
-- `package.json`
-- `turbo.json`
-- `apps/web/`
-- `apps/agent/`
-- `packages/`
-- `docs/`
-
-Last updated:
-2026-10-02
+## Operacao
+- pnpm qa
+- pnpm test:e2e
+- pnpm package:windows
+- powershell -File scripts/start.ps1
+- powershell -File scripts/stop.ps1
+- Configurar credencial somente no dialogo de scripts/configure-router.ps1.
+- Nao bloquear dispositivos sem confirmacao especifica.
+- dashboard-desktop.png e arquivo preexistente do usuario: nao incluir no commit.

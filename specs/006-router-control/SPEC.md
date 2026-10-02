@@ -22,8 +22,9 @@ Implement router block/unblock only after legitimate router access is available.
 
 The adapter is available, but it is opt-in. The agent activates it only when
 `ROUTER_ADAPTER=huawei-ax2`, `ROUTER_BASE_URL`, `ROUTER_CREDENTIAL_REF`,
-`ROUTER_USERNAME`, and `ROUTER_PASSWORD` are present in the local runtime
-environment. Passwords are never committed or stored in the database.
+and a Windows DPAPI credential matching that reference is configured locally.
+Runtime `ROUTER_USERNAME`/`ROUTER_PASSWORD` remain supported for development.
+Passwords are never committed or stored in the database.
 
 Administrative routes are local-only and guarded by the existing safety policy:
 `POST /router/block`, `POST /router/unblock`, and `GET /router/devices`.
