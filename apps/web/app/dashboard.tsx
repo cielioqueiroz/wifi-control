@@ -254,14 +254,16 @@ export default function Dashboard(): JSX.Element {
             <span className="brand-name">WiFi Control</span>
           </div>
           <div className="breadcrumb">
-            <span className="eyebrow">LOCAL NETWORK</span>
+            <span className="eyebrow">REDE LOCAL</span>
             <ChevronRight size={14} />
-            <span>Overview</span>
+            <span>Visão geral</span>
           </div>
           <div className="topbar-actions">
             <span className={`agent-pill ${connectionState}`}>
               <span className="status-dot" />
-              {connectionState === "offline" ? "Agent offline" : "Agent local"}
+              {connectionState === "offline"
+                ? "Agente offline"
+                : "Agente local"}
             </span>
             <button
               aria-label="Atualizar descoberta"
@@ -280,8 +282,8 @@ export default function Dashboard(): JSX.Element {
         <div className="content-wrap">
           <section className="page-heading reveal reveal-one">
             <div>
-              <p className="eyebrow">NETWORK / HOME OFFICE</p>
-              <h1>Network overview</h1>
+              <p className="eyebrow">REDE / ESCRITÓRIO</p>
+              <h1>Visão geral da rede</h1>
               <p className="lede">
                 Um retrato local, legível e sem suposições sobre quem está na
                 sua rede.
@@ -292,7 +294,7 @@ export default function Dashboard(): JSX.Element {
                 <Network size={17} />
               </span>
               <span>
-                <small>ACTIVE SEGMENT</small>
+                <small>SEGMENTO ATIVO</small>
                 <strong>{getNetworkLabel(agentStatus)}</strong>
               </span>
               <span className="chip-state">LOCAL</span>
@@ -308,29 +310,29 @@ export default function Dashboard(): JSX.Element {
             className="metrics-grid reveal reveal-two"
           >
             <MetricCard
-              detail="last scan"
+              detail="última varredura"
               icon={<MonitorSmartphone size={17} />}
-              label="Discovered devices"
+              label="Dispositivos descobertos"
               value={metrics.total}
             />
             <MetricCard
-              detail="responding"
+              detail="respondendo"
               icon={<Sparkles size={17} />}
-              label="Online now"
+              label="Online agora"
               tone="mint"
               value={metrics.online}
             />
             <MetricCard
-              detail="identity unknown"
+              detail="identidade desconhecida"
               icon={<CircleHelp size={17} />}
-              label="Needs review"
+              label="Requer revisão"
               tone="amber"
               value={metrics.unknown}
             />
             <MetricCard
-              detail="manufacturer hidden"
+              detail="fabricante oculto"
               icon={<ShieldAlert size={17} />}
-              label="Private MACs"
+              label="MACs privados"
               tone="coral"
               value={metrics.privateMacs}
             />
@@ -344,7 +346,7 @@ export default function Dashboard(): JSX.Element {
               <span>
                 <small>GATEWAY</small>
                 <strong>
-                  {agentStatus?.interfaces[0]?.gateway ?? "Not detected"}
+                  {agentStatus?.interfaces[0]?.gateway ?? "Não detectado"}
                 </strong>
               </span>
             </div>
@@ -355,7 +357,7 @@ export default function Dashboard(): JSX.Element {
               <span>
                 <small>INTERFACE</small>
                 <strong>
-                  {agentStatus?.interfaces[0]?.name ?? "Waiting for agent"}
+                  {agentStatus?.interfaces[0]?.name ?? "Aguardando agente"}
                 </strong>
               </span>
             </div>
@@ -364,16 +366,18 @@ export default function Dashboard(): JSX.Element {
                 <Clock3 size={16} />
               </span>
               <span>
-                <small>LAST OBSERVED</small>
+                <small>ÚLTIMA OBSERVAÇÃO</small>
                 <strong>
-                  {connectionState === "ready" ? "Just now" : "Awaiting scan"}
+                  {connectionState === "ready"
+                    ? "Agora mesmo"
+                    : "Aguardando varredura"}
                 </strong>
               </span>
             </div>
             <div className="strip-action">
               <span>
-                <small>ROUTER CONTROL</small>
-                <strong>Unavailable</strong>
+                <small>CONTROLE DO ROTEADOR</small>
+                <strong>Indisponível</strong>
               </span>
               <ShieldOff size={17} />
             </div>
@@ -382,8 +386,8 @@ export default function Dashboard(): JSX.Element {
           <section className="devices-section reveal reveal-four">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">OBSERVATIONS</p>
-                <h2>Devices on your network</h2>
+                <p className="eyebrow">OBSERVAÇÕES</p>
+                <h2>Dispositivos na sua rede</h2>
               </div>
               <div className="table-tools">
                 <label className="search-box">
@@ -392,7 +396,7 @@ export default function Dashboard(): JSX.Element {
                   <input
                     aria-label="Buscar dispositivos"
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search device, IP or MAC"
+                    placeholder="Buscar dispositivo, IP ou MAC"
                     value={query}
                   />
                 </label>
@@ -416,7 +420,7 @@ export default function Dashboard(): JSX.Element {
                       onClick={() => setFilter(option)}
                       type="button"
                     >
-                      {option === "all" ? "All" : option}
+                      {getFilterLabel(option)}
                     </button>
                   ))}
                 </div>
@@ -475,23 +479,26 @@ function Sidebar(): JSX.Element {
         </span>
         <span>
           <strong>WiFi Control</strong>
-          <small>LOCAL OBSERVATORY</small>
+          <small>OBSERVATÓRIO LOCAL</small>
         </span>
       </div>
       <div className="sidebar-rule" />
-      <nav aria-label="Primary navigation" className="side-nav">
-        <NavItem active icon={<Network size={16} />} label="Network" />
-        <NavItem icon={<MonitorSmartphone size={16} />} label="Devices" />
-        <NavItem icon={<History size={16} />} label="History" />
-        <NavItem icon={<ShieldCheck size={16} />} label="Trust center" />
+      <nav aria-label="Navegação principal" className="side-nav">
+        <NavItem active icon={<Network size={16} />} label="Rede" />
+        <NavItem icon={<MonitorSmartphone size={16} />} label="Dispositivos" />
+        <NavItem icon={<History size={16} />} label="Histórico" />
+        <NavItem
+          icon={<ShieldCheck size={16} />}
+          label="Central de confiança"
+        />
       </nav>
       <div className="sidebar-bottom">
         <div className="scope-label">
           <span className="status-dot online" />
-          LOCAL ONLY
+          SOMENTE LOCAL
         </div>
-        <p>Evidence stays on this machine.</p>
-        <span className="version">v0.1 / FOUNDATION</span>
+        <p>As evidências permanecem nesta máquina.</p>
+        <span className="version">v0.1 / FUNDAÇÃO</span>
       </div>
     </aside>
   );
@@ -589,11 +596,11 @@ function DeviceTable({
       role="table"
     >
       <div className="device-table-head" role="row">
-        <span>Device</span>
-        <span>Address</span>
-        <span>Identity</span>
+        <span>Dispositivo</span>
+        <span>Endereço</span>
+        <span>Identidade</span>
         <span>Status</span>
-        <span>Trust</span>
+        <span>Confiança</span>
         <span />
       </div>
       {devices.map((device) => (
@@ -613,24 +620,24 @@ function DeviceTable({
               <small>
                 {device.identity.hostname ??
                   device.identity.deviceType ??
-                  "Unidentified endpoint"}
+                  "Dispositivo não identificado"}
               </small>
             </span>
           </span>
-          <span className="mono-cell">{device.identity.ip ?? "No IP"}</span>
+          <span className="mono-cell">{device.identity.ip ?? "Sem IP"}</span>
           <span className="identity-cell">
             {device.identity.privateMac ? (
-              <span className="private-label">Private MAC</span>
+              <span className="private-label">MAC privado</span>
             ) : (
-              (device.identity.manufacturer ?? "Unresolved")
+              (device.identity.manufacturer ?? "Não resolvido")
             )}
-            <small>{device.identity.mac ?? "MAC not observed"}</small>
+            <small>{device.identity.mac ?? "MAC não observado"}</small>
           </span>
           <span>
             <StatusBadge status={device.identity.status} />
           </span>
           <span className={`trust-label ${device.identity.trustStatus}`}>
-            {device.identity.trustStatus}
+            {getTrustLabel(device.identity.trustStatus)}
           </span>
           <span className="row-arrow">
             <ChevronRight size={16} />
@@ -666,7 +673,7 @@ function DeviceDrawer({
       <aside aria-label="Detalhes do dispositivo" className="device-drawer">
         <div className="drawer-header">
           <div>
-            <p className="eyebrow">DEVICE DETAIL</p>
+            <p className="eyebrow">DETALHES DO DISPOSITIVO</p>
             <h2>{device.identity.displayName}</h2>
           </div>
           <button
@@ -682,37 +689,37 @@ function DeviceDrawer({
         <div className="drawer-status">
           <StatusBadge status={device.identity.status} />
           <span className={`trust-label ${device.identity.trustStatus}`}>
-            {device.identity.trustStatus}
+            {getTrustLabel(device.identity.trustStatus)}
           </span>
           <span className="drawer-id">{device.identity.id}</span>
         </div>
         <div className="drawer-section">
-          <p className="drawer-label">Identity</p>
+          <p className="drawer-label">Identidade</p>
           <DetailRow
-            label="IP address"
+            label="Endereço IP"
             mono
-            value={device.identity.ip ?? "Not observed"}
+            value={device.identity.ip ?? "Não observado"}
           />
           <DetailRow
-            label="MAC address"
+            label="Endereço MAC"
             mono
-            value={device.identity.mac ?? "Not observed"}
+            value={device.identity.mac ?? "Não observado"}
           />
           <DetailRow
-            label="Manufacturer"
+            label="Fabricante"
             value={
               device.identity.privateMac
-                ? "Hidden for private MAC"
-                : (device.identity.manufacturer ?? "Not resolved")
+                ? "Oculto por MAC privado"
+                : (device.identity.manufacturer ?? "Não resolvido")
             }
           />
           <DetailRow
-            label="Device type"
-            value={device.identity.deviceType ?? "Unknown"}
+            label="Tipo de dispositivo"
+            value={device.identity.deviceType ?? "Desconhecido"}
           />
         </div>
         <div className="drawer-section">
-          <p className="drawer-label">Local actions</p>
+          <p className="drawer-label">Ações locais</p>
           {editing ? (
             <form
               className="rename-form"
@@ -730,7 +737,7 @@ function DeviceDrawer({
               />
               <button className="primary-button" type="submit">
                 <Check size={15} />
-                Save
+                Salvar
               </button>
             </form>
           ) : (
@@ -741,7 +748,7 @@ function DeviceDrawer({
             >
               <span>
                 <Sparkles size={16} />
-                <strong>Rename device</strong>
+                <strong>Renomear dispositivo</strong>
               </span>
               <ChevronRight size={16} />
             </button>
@@ -757,7 +764,7 @@ function DeviceDrawer({
               type="button"
             >
               <ShieldCheck size={15} />
-              Trust
+              Confiar
             </button>
             <button
               className={
@@ -769,28 +776,28 @@ function DeviceDrawer({
               type="button"
             >
               <ShieldOff size={15} />
-              Block
+              Bloquear
             </button>
           </div>
         </div>
         <div className="router-lock">
           <ShieldAlert size={17} />
           <span>
-            <strong>Router control unavailable</strong>
+            <strong>Controle do roteador indisponível</strong>
             <small>
-              Blocking at the router is disabled until a supported adapter and
-              legitimate admin access are configured.
+              O bloqueio no roteador está desativado até que um adaptador
+              compatível e acesso administrativo autorizado sejam configurados.
             </small>
           </span>
         </div>
         <div className="drawer-section evidence-section">
           <p className="drawer-label">
-            Evidence trail <span>{device.evidence.length}</span>
+            Trilha de evidências <span>{device.evidence.length}</span>
           </p>
           {device.evidence.map((item, index) => (
             <div className="evidence-row" key={`${item.source}-${index}`}>
               <span className="evidence-source">{item.source}</span>
-              <span>{Math.round(item.confidence * 100)}% confidence</span>
+              <span>{Math.round(item.confidence * 100)}% de confiança</span>
             </div>
           ))}
         </div>
@@ -835,14 +842,14 @@ function EmptyState({
       <span className="state-icon">
         <Network size={21} />
       </span>
-      <h3>No devices observed yet</h3>
+      <h3>Nenhum dispositivo observado ainda</h3>
       <p>
-        The local agent is connected, but no neighbor or ICMP evidence has been
-        collected.
+        O agente local está conectado, mas nenhuma evidência de vizinhança ou
+        ICMP foi coletada.
       </p>
       <button className="primary-button" onClick={onRefresh} type="button">
         <RefreshCw size={15} />
-        Run discovery
+        Executar descoberta
       </button>
     </div>
   );
@@ -863,16 +870,18 @@ function ProblemState({
         <CircleAlert size={21} />
       </span>
       <h3>
-        {isOffline ? "Local agent unavailable" : "Could not load network"}
+        {isOffline
+          ? "Agente local indisponível"
+          : "Não foi possível carregar a rede"}
       </h3>
       <p>
         {isOffline
-          ? "Start the WiFi Control agent on this machine, then try the discovery again."
-          : "The agent responded with an error. Try the discovery again to recover the view."}
+          ? "Inicie o agente WiFi Control nesta máquina e tente a descoberta novamente."
+          : "O agente respondeu com um erro. Tente a descoberta novamente para recuperar a visão."}
       </p>
       <button className="primary-button" onClick={onRefresh} type="button">
         <RefreshCw size={15} />
-        Try again
+        Tentar novamente
       </button>
     </div>
   );
@@ -884,9 +893,9 @@ function FilteredEmptyState({
   return (
     <div className="filtered-empty">
       <Search size={17} />
-      <span>No devices match this view.</span>
+      <span>Nenhum dispositivo corresponde a esta visualização.</span>
       <button onClick={onClear} type="button">
-        Clear filters
+        Limpar filtros
       </button>
     </div>
   );
@@ -894,8 +903,29 @@ function FilteredEmptyState({
 
 function getNetworkLabel(status: AgentStatus | null): string {
   return (
-    status?.interfaces.find((item) => item.cidr)?.cidr ?? "Awaiting interface"
+    status?.interfaces.find((item) => item.cidr)?.cidr ?? "Aguardando interface"
   );
+}
+
+function getFilterLabel(filter: DeviceFilter): string {
+  const labels: Record<DeviceFilter, string> = {
+    all: "Todos",
+    offline: "Offline",
+    online: "Online",
+    unknown: "Desconhecido"
+  };
+
+  return labels[filter];
+}
+
+function getTrustLabel(status: TrustStatus): string {
+  const labels: Record<TrustStatus, string> = {
+    blocked: "Bloqueado",
+    trusted: "Confiável",
+    unknown: "Desconhecido"
+  };
+
+  return labels[status];
 }
 
 function normalizeDevice(device: ApiDevice): ApiDevice {

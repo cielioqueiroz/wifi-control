@@ -16,7 +16,7 @@ const statusClassName: Record<DeviceStatus, string> = {
 const statusLabel: Record<DeviceStatus, string> = {
   offline: "Offline",
   online: "Online",
-  unknown: "Unknown"
+  unknown: "Desconhecido"
 };
 
 export function StatusBadge({ status }: StatusBadgeProps): JSX.Element {
